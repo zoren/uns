@@ -133,7 +133,8 @@ const EVAL = (ast, env) => {
       if (env.has(name)) return env.get(name)
       throw new Error(`undefined symbol ${name}`)
     }
-    return ast
+    if (typeof ast === 'number' || typeof ast === 'string') return ast
+    throw new Error(`cannot eval ${ast}`)
   }
   if (ast.length === 0) return ast
   const [first, ...rest] = ast
@@ -251,12 +252,13 @@ const print = (x) => {
       return `'${x}'`
     case 'number':
       return String(x)
-    case 'function':
-      return '#<function>'
+    // functions aren't values
+    // case 'function':
+    //   return '#<function>'
   }
   if (Array.isArray(x)) return `[${x.map(print).join(' ')}]`
   if (x instanceof UnsSymbol) return x.name
-  if (x instanceof Recur) return `#<recur ${print(x.args)}>`
+  // if (x instanceof Recur) return `#<recur ${print(x.args)}>`
   throw new Error(`cannot print ${x}`)
 }
 
@@ -265,10 +267,7 @@ funcEnv.set('sub', (a, b) => a - b)
 
 funcEnv.set('list', (...args) => args)
 
-const run = (s) => {
-  const form = parse(s)
-  return print(EVAL(form, funcEnv))
-}
+const run = (s) => print(EVAL(parse(s), funcEnv))
 
 const tests = [
   [`3`, `[add 1 2] ; but a comment`],
