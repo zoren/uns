@@ -10,3 +10,15 @@
 [patient-gauss 10]
 
 [patient-gauss 100]
+
+[func dec [n]
+  [sub n 1]]
+
+[func recursive-gauss [n]
+  [if [eq n 0]
+    0
+    [add n [recursive-gauss [dec n]]]]]
+
+[recursive-gauss 10]
+
+[recursive-gauss 100]
