@@ -124,10 +124,18 @@ const parse = (s) => {
   return readForm()
 }
 
+const funcEnv = new Map()
+
 const EVAL = (ast, env) => {
+  assert(ast !== undefined, 'ast is undefined')
+  assert(ast !== null, 'ast is null')
   if (!Array.isArray(ast)) {
-    if (typeof ast === 'number' || typeof ast === 'string') return ast
-    if (ast instanceof UnsSymbol) return env.get(ast.name)
+    if (ast instanceof UnsSymbol) {
+      const { name } = ast
+      if (env.has(name)) return env.get(name)
+      if (funcEnv.has(name)) return funcEnv.get(name)
+      throw new Error(`undefined symbol ${name}`)
+    }
     if (Array.isArray(ast)) return ast.map((x) => EVAL(x, env))
     return ast
   }
@@ -141,6 +149,7 @@ const EVAL = (ast, env) => {
         const [cond, then, else_] = rest
         const econd = EVAL(cond, env)
         assert(typeof econd === 'number', 'condition must be a number')
+        assert(!isNaN(econd), 'condition must be a number')
         return EVAL(econd !== 0 ? then : else_, env)
       }
       case 'func': {
@@ -168,14 +177,17 @@ const EVAL = (ast, env) => {
           }
           return EVAL(lastBody, newEnv)
         }
-        env.set(fname, fn)
+        funcEnv.set(fname, fn)
         return []
       }
     }
   }
 
   const [fn, ...args] = ast.map((x) => EVAL(x, env))
-  assert(typeof fn === 'function', 'first element must be a function')
+  assert(
+    typeof fn === 'function',
+    'first element must be a function: ' + fn + ' ' + ast[0],
+  )
   return fn(...args)
 }
 
@@ -186,14 +198,13 @@ const print = (x) => {
   return String(x)
 }
 
-const env = new Map()
-env.set('add', (a, b) => a + b)
-env.set('sub', (a, b) => a - b)
+funcEnv.set('add', (a, b) => a + b)
+funcEnv.set('sub', (a, b) => a - b)
 
 const run = (s) => {
   console.log(s)
   const form = parse(s)
-  return print(EVAL(form, env))
+  return print(EVAL(form, funcEnv))
 }
 
 const tests = [
@@ -201,6 +212,8 @@ const tests = [
   [`2`, `[add 1 [sub 3 2]]`],
   [`2`, `[if 0 1 2]`],
   [`1`, `[if 1 1 2]`],
+  [`[]`, `[func inc [x] [add x 1]]`],
+  [`2`, `[inc 1]`],
 ]
 let i = 0
 for (const [expected, input] of tests) {
