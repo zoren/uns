@@ -10,6 +10,10 @@
 const isWhitespace = (c) => c === ' ' || c === '\n'
 const isSymbol = (c) => /[a-z0-9.=]|-/.test(c)
 
+const assert = (cond, msg) => {
+  if (!cond) throw new Error(msg)
+}
+
 const firstToken = (s) => {
   if (s.length === 0) return null
   const c = s[0]
@@ -36,9 +40,7 @@ const firstToken = (s) => {
       return [{ text: s.slice(1, i), tokenType: 'string' }, s.slice(i + 1)]
     }
     default:
-      if (!isSymbol(c)) {
-        throw new Error(`illegal character ${c}`)
-      }
+      assert(isSymbol(c), `illegal character ${c}`)
       const i = scan(isSymbol)
       return [{ text: s.slice(0, i), tokenType: 'symbol' }, s.slice(i)]
   }
@@ -87,7 +89,7 @@ const parse = (s) => {
 
   const readForm = () => {
     const token = currentToken
-    if (!token) throw new Error('unexpected end of input')
+    assert(token, 'unexpected end of input')
     next()
     const { text, tokenType } = token
     switch (tokenType) {
@@ -96,7 +98,7 @@ const parse = (s) => {
       case 'symbol': {
         if (text.startsWith('0x')) {
           const h = parseInt(text.slice(2), 16)
-          if (isNaN(h)) throw new Error(`illegal hex number ${text}`)
+          assert(!isNaN(h), `illegal hex number ${text}`)
           return h
         }
         const n = parseInt(text, 10)
@@ -106,26 +108,20 @@ const parse = (s) => {
         return new UnsSymbol(text)
       }
       case 'bracket':
-        if (text === '[') {
-          const list = []
-          while (currentToken && currentToken.text !== ']') {
-            list.push(readForm())
-          }
-          if (!currentToken) throw new Error('unexpected end of input')
-          next()
-          return list
-        } else {
-          throw new Error('unexpected ]')
+        assert(text === '[', 'unexpected bracket')
+        const list = []
+        while (currentToken && currentToken.text !== ']') {
+          list.push(readForm())
         }
+        assert(currentToken, 'unexpected end of input')
+        next()
+        return list
+
       default:
         throw new Error(`unexpected token ${text} of type ${tokenType}`)
     }
   }
   return readForm()
-}
-
-const assert = (cond, msg) => {
-  if (!cond) throw new Error(msg)
 }
 
 const EVAL = (ast, env) => {
@@ -141,10 +137,39 @@ const EVAL = (ast, env) => {
     const name = first.name
     switch (name) {
       case 'if': {
+        assert(rest.length === 3, 'if must have 3 arguments')
         const [cond, then, else_] = rest
         const econd = EVAL(cond, env)
         assert(typeof econd === 'number', 'condition must be a number')
         return EVAL(econd !== 0 ? then : else_, env)
+      }
+      case 'func': {
+        assert(rest.length >= 3, 'func must have at least 3 arguments')
+        assert(rest[0] instanceof UnsSymbol, 'first argument must be a symbol')
+        const fname = rest[0].name
+        assert(Array.isArray(rest[1]), 'second argument must be a list')
+        const paramNames = rest[1].map((x) => {
+          assert(x instanceof UnsSymbol, 'parameters must be symbols')
+          return x.name
+        })
+        const bodies = rest.slice(2, -1)
+        const lastBody = rest.at(-1)
+        const fn = (...args) => {
+          assert(
+            args.length === paramNames.length,
+            'wrong number of arguments to function: ' + fname,
+          )
+          const newEnv = new Map(env)
+          for (let i = 0; i < args.length; i++) {
+            newEnv.set(paramNames[i], args[i])
+          }
+          for (const body of bodies) {
+            EVAL(body, newEnv)
+          }
+          return EVAL(lastBody, newEnv)
+        }
+        env.set(fname, fn)
+        return []
       }
     }
   }
