@@ -235,6 +235,27 @@ const EVAL = (ast, env) => {
       case 'recur': {
         return new Recur(rest.map((x) => EVAL(x, env)))
       }
+      case 'switch': {
+        assert(rest.length >= 2, 'switch must have at least 2 arguments')
+        assert(
+          rest.length % 2 === 0,
+          'switch must have an even number of arguments',
+        )
+        const [key, ...cases] = rest
+        const ekey = EVAL(key, env)
+        for (let i = 0; i < cases.length; i += 2) {
+          const caseKey = cases[i]
+          if (typeof caseKey === 'number') {
+            if (caseKey === ekey) return EVAL(cases[i + 1], env)
+          } else if (Array.isArray(caseKey)) {
+            for (const k of caseKey) {
+              assert(typeof k === 'number', 'case key must be a number')
+              if (k === ekey) return EVAL(cases[i + 1], env)
+            }
+          }
+        }
+        return EVAL(cases.at(-1), env)
+      }
     }
   }
 
@@ -247,17 +268,21 @@ const EVAL = (ast, env) => {
 }
 
 const print = (x) => {
-  if (Array.isArray(x)) {
-    return `[${x.map(print).join(' ')}]`
-  }
-  return String(x)
+  if (Array.isArray(x)) return `[${x.map(print).join(' ')}]`
+  if (x instanceof UnsSymbol) return x.name
+  if (x instanceof Recur) return `#<recur ${print(x.args)}>`
+  if (typeof x === 'string') return `'${x}'`
+  if (typeof x === 'number') return String(x)
+  if (typeof x === 'function') return '#<function>'
+  throw new Error(`cannot print ${x}`)
 }
 
 funcEnv.set('add', (a, b) => a + b)
 funcEnv.set('sub', (a, b) => a - b)
 
+funcEnv.set('list', (...args) => args)
+
 const run = (s) => {
-  console.log(s)
   const form = parse(s)
   return print(EVAL(form, funcEnv))
 }
@@ -271,10 +296,16 @@ const tests = [
   [`2`, `[inc 1]`],
   [`5`, `[let [x 2 y 3] [add x y]]`],
   [`55`, `[loop [r 0 i 10] [if i [recur [add r i] [sub i 1]] r]]`],
+  [`[]`, `[func switcher [x] [switch x 0 'zero' 1 'one' 'default']]`],
+  [`['zero' 'one' 'default']`, `[list [switcher 0] [switcher 1] [switcher 2]]`],
+  [`'zero'`, `[switch 0 0 'zero' 'default']`],
+  [`'default'`, `[switch 1 0 'zero' 'default']`],
+  [`'default'`, `[switch 0 'default']`],
 ]
 let i = 0
 for (const [expected, input] of tests) {
   const result = run(input)
+  console.log(`${input} ; => ${result}`)
   assert(result === expected, `expected ${expected}, got ${result}`)
   i++
 }
