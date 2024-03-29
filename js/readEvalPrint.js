@@ -7,6 +7,8 @@
 // only 32 bit signed integers are supported for now
 // all other characters are illegal
 
+import { text } from 'stream/consumers'
+
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg)
 }
@@ -292,6 +294,54 @@ for (const [name, fn] of [
 }
 
 funcEnv.set('list', (...args) => args)
+
+funcEnv.set('print', (...args) => {
+  console.log(...args.map(print))
+  return []
+})
+
+funcEnv.set('nth', (list, n) => {
+  assert(Array.isArray(list), 'first argument must be a list')
+  assert(typeof n === 'number', 'second argument must be a number')
+  assert(n >= 0 && n < list.length, 'index out of bounds')
+  return list[n]
+})
+
+const memoryPages = 1
+const memory = new Uint8Array(65536 * memoryPages)
+
+funcEnv.set('load8u', (addr) => {
+  assert(typeof addr === 'number', 'load8u: address must be a number')
+  assert(addr >= 0 && addr < memory.length, 'load8u: address out of bounds')
+  return memory[addr]
+})
+
+funcEnv.set('store8', (addr, value) => {
+  assert(typeof addr === 'number', 'store8: address must be a number')
+  assert(addr >= 0 && addr < memory.length, 'store8: address out of bounds')
+  assert(typeof value === 'number', 'store8: value must be a number')
+  assert(value >= 0 && value < 256, 'store8: value out of bounds')
+  memory[addr] = value
+  return value
+})
+
+let activeDataIndex = 0
+
+const align4 = (n) => (n + 3) & ~3
+
+funcEnv.set('active', (s) => {
+  assert(typeof s === 'string', 'active: argument must be a string')
+  const textEncoder = new TextEncoder()
+  const { read, written } = textEncoder.encodeInto(
+    s,
+    memory.subarray(activeDataIndex),
+  )
+  assert(read === s.length, 'active: could not encode entire string')
+  const pointer = activeDataIndex
+  activeDataIndex += align4(written)
+  return [pointer, written]
+  // return 0
+})
 
 export const run = (s) => print(EVAL(parse(s)(), new Map()))
 

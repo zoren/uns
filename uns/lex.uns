@@ -1,0 +1,76 @@
+[func assert [c message] [if c 0 [abort message]]]
+
+[func inc [x] [add x 1]]
+
+[func dec [x] [sub x 1]]
+
+[func is-whitespace [c]
+    [switch c
+      [0x09 0x0a 0x0d 0x20] ; '\t' '\n' '\r' ' '
+      1
+      0]]
+
+[func is-between [lower c upper] [and [le lower c] [le c upper]]]
+
+[func is-digit [c] [is-between 0x30 c 0x39]]
+
+[func is-ident-char [c]
+  [or
+    [is-between 0x61 c 0x7a] ; a-z
+    [or
+      [is-between 0x2d c 0x2e] ; -.
+      [is-digit c]]]]
+
+[func get-token [start end]
+  [assert [lt start end] 'empty token']
+  [let [c [load8u start]]
+    [switch c
+
+      [0x09 0x0a 0x0d 0x20] ; '\t' '\n' '\r' ' '
+      [loop [j [inc start]]
+        [if [if [lt j end] [is-whitespace [load8u j]] 0]
+          [recur [inc j]]
+          [list 1 start j j]]]
+
+      0x27 ; '\''
+      [loop [j [inc start]]
+        [if [if [lt j end] [neq [load8u j] 0x27] 0]
+          [recur [inc j]]
+          [list 2 [inc start] [dec j] [inc j]]]]
+
+;      [0x30 0x31 0x32 0x33 0x34 0x35 0x36 0x37 0x38 0x39] ; '0' '1' '2' '3' '4' '5' '6' '7' '8' '9'
+;      [loop [j [inc start]]
+;        [if [if [lt j end] [is-digit [load8u j]] 0]
+;          [recur [inc j]]
+;          [list 3 start j j]]]
+
+      0x3b ; ';'
+      [loop [j [inc start]]
+        [if [if [lt j end] [neq [load8u j] 0x0a] 0]
+          [recur [inc j]]
+          [list 4 start j j]]]
+
+      [0x5b 0x5d] ; '[' ']'
+      [list 5 start [inc start] [inc start]]
+
+      [if [is-ident-char c]
+        [loop [j [inc start]]
+          [if [if [lt j end] [is-ident-char [load8u j]] 0]
+            [recur [inc j]]
+            [list 6 start j j]]]
+
+        [abort 'unexpected character' c]]]]]
+
+[func get-tokens [start end]
+  [loop [i start]
+    [if [lt i end]
+      [let [token [get-token i end]]
+        [print token]
+        [recur [nth token 2]]]
+      0]]]
+
+[let
+  [s [active 'hej du']
+    start [nth s 0]
+    len [nth s 1]]
+  [get-tokens start [add start len]]]
