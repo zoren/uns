@@ -1,13 +1,12 @@
-import { run } from './readEvalPrint.js'
+import { run, runAll } from './js/readEvalPrint.js'
 
 const commandLineArgs = process.argv.slice(2)
 
 console.assert(commandLineArgs.length <= 1, 'usage: node . [file]')
 
 if (commandLineArgs.length === 1) {
-  const content = fs.readFileSync(commandLineArgs[0], 'utf8')
-  const result = run(content)
-  console.log(result)
+  const fs = await import('node:fs')
+  runAll(fs.readFileSync(commandLineArgs[0], 'utf8'))
   exit(0)
 }
 

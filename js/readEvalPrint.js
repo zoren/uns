@@ -81,7 +81,7 @@ const parse = (s) => {
 
   const readForm = () => {
     const token = currentToken
-    assert(token, 'unexpected end of input')
+    if (!token) return null
     next()
     const { text, tokenType } = token
     switch (tokenType) {
@@ -113,7 +113,7 @@ const parse = (s) => {
         throw new Error(`unexpected token ${text} of type ${tokenType}`)
     }
   }
-  return readForm()
+  return readForm
 }
 
 class Recur {
@@ -293,4 +293,12 @@ for (const [name, fn] of [
 
 funcEnv.set('list', (...args) => args)
 
-export const run = (s) => print(EVAL(parse(s), new Map()))
+export const run = (s) => print(EVAL(parse(s)(), new Map()))
+
+export const runAll = (s) => {
+  const readForm = parse(s)
+  let form
+  while ((form = readForm())) {
+    console.log(print(EVAL(form, new Map())))
+  }
+}
