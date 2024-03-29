@@ -226,7 +226,8 @@ const EVAL = (ast, env) => {
       )
       const [key, ...cases] = rest
       const ekey = EVAL(key, env)
-      for (let i = 0; i < cases.length; i += 2) {
+      assert(typeof ekey === 'number', 'switch key must be a number')
+      for (let i = 0; i < cases.length-1; i += 2) {
         const caseKey = cases[i]
         if (typeof caseKey === 'number') {
           if (caseKey === ekey) return EVAL(cases[i + 1], env)
@@ -235,6 +236,8 @@ const EVAL = (ast, env) => {
             assert(typeof k === 'number', 'case key must be a number')
             if (k === ekey) return EVAL(cases[i + 1], env)
           }
+        } else {
+          assert(false, 'illegal case key')
         }
       }
       return EVAL(cases.at(-1), env)
