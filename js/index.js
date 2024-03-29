@@ -116,12 +116,6 @@ const parse = (s) => {
   return readForm()
 }
 
-const makeEnv = (parent) => {
-  const env = new Map()
-  env.parent = parent
-  return env
-}
-
 class Recur {
   constructor(args) {
     this.args = args
@@ -137,126 +131,119 @@ const EVAL = (ast, env) => {
     if (ast instanceof UnsSymbol) {
       const { name } = ast
       if (env.has(name)) return env.get(name)
-      if (funcEnv.has(name)) return funcEnv.get(name)
       throw new Error(`undefined symbol ${name}`)
     }
-    if (Array.isArray(ast)) return ast.map((x) => EVAL(x, env))
     return ast
   }
   if (ast.length === 0) return ast
   const [first, ...rest] = ast
-  if (first instanceof UnsSymbol) {
-    const name = first.name
-    switch (name) {
-      case 'if': {
-        assert(rest.length === 3, 'if must have 3 arguments')
-        const [cond, then, else_] = rest
-        const econd = EVAL(cond, env)
-        assert(typeof econd === 'number', 'condition must be a number')
-        assert(!isNaN(econd), 'condition must be a number')
-        return EVAL(econd !== 0 ? then : else_, env)
-      }
-      case 'func': {
-        assert(rest.length >= 3, 'func must have at least 3 arguments')
-        assert(rest[0] instanceof UnsSymbol, 'first argument must be a symbol')
-        const fname = rest[0].name
-        assert(Array.isArray(rest[1]), 'second argument must be a list')
-        const paramNames = rest[1].map((x) => {
-          assert(x instanceof UnsSymbol, 'parameters must be symbols')
-          return x.name
-        })
-        const bodies = rest.slice(2, -1)
-        const lastBody = rest.at(-1)
-        const fn = (...args) => {
-          assert(
-            args.length === paramNames.length,
-            'wrong number of arguments to function: ' + fname,
-          )
-          const newEnv = new Map(env)
-          for (let i = 0; i < args.length; i++) {
-            newEnv.set(paramNames[i], args[i])
-          }
-          for (const body of bodies) {
-            EVAL(body, newEnv)
-          }
-          return EVAL(lastBody, newEnv)
-        }
-        funcEnv.set(fname, fn)
-        return []
-      }
-      case 'let':
-      case 'loop': {
-        assert(rest.length >= 2, name + ' must have at least 2 arguments')
-        const [bindings, ...bodies] = rest
-        assert(Array.isArray(bindings), 'second argument must be a list')
-        assert(bindings.length % 2 === 0, 'bindings must be of even length')
-        const newEnv = new Map(env)
-        const bindingNames = []
-        for (let i = 0; i < bindings.length; i += 2) {
-          const key = bindings[i]
-          assert(key instanceof UnsSymbol, 'key must be a symbol')
-          const { name } = key
-          bindingNames.push(name)
-          newEnv.set(name, EVAL(bindings[i + 1], newEnv))
-        }
-        const butLastBodies = bodies.slice(0, -1)
-        const lastBody = bodies.at(-1)
-        if (name === 'let') {
-          for (const body of butLastBodies) {
-            EVAL(body, newEnv)
-          }
-          return EVAL(lastBody, newEnv)
-        } else {
-          while (true) {
-            for (const body of butLastBodies) {
-              EVAL(body, newEnv)
-            }
-            const result = EVAL(lastBody, newEnv)
-            if (!(result instanceof Recur)) return result
-            const { args } = result
-            assert(
-              bindingNames.length === args.length,
-              'wrong number of arguments to recur',
-            )
-            for (let i = 0; i < args.length; i++) {
-              newEnv.set(bindingNames[i], args[i])
-            }
-          }
-        }
-      }
-      case 'recur': {
-        return new Recur(rest.map((x) => EVAL(x, env)))
-      }
-      case 'switch': {
-        assert(rest.length >= 2, 'switch must have at least 2 arguments')
+  assert(first instanceof UnsSymbol, 'first element must be a symbol: ' + first)
+  const name = first.name
+  switch (name) {
+    case 'if': {
+      assert(rest.length === 3, 'if must have 3 arguments')
+      const [cond, then, else_] = rest
+      const econd = EVAL(cond, env)
+      assert(typeof econd === 'number', 'condition must be a number')
+      assert(!isNaN(econd), 'condition must be a number')
+      return EVAL(econd !== 0 ? then : else_, env)
+    }
+    case 'func': {
+      assert(rest.length >= 3, 'func must have at least 3 arguments')
+      assert(rest[0] instanceof UnsSymbol, 'first argument must be a symbol')
+      const fname = rest[0].name
+      assert(Array.isArray(rest[1]), 'second argument must be a list')
+      const paramNames = rest[1].map((x) => {
+        assert(x instanceof UnsSymbol, 'parameters must be symbols')
+        return x.name
+      })
+      const bodies = rest.slice(2, -1)
+      const lastBody = rest.at(-1)
+      const fn = (...args) => {
         assert(
-          rest.length % 2 === 0,
-          'switch must have an even number of arguments',
+          args.length === paramNames.length,
+          'wrong number of arguments to function: ' + fname,
         )
-        const [key, ...cases] = rest
-        const ekey = EVAL(key, env)
-        for (let i = 0; i < cases.length; i += 2) {
-          const caseKey = cases[i]
-          if (typeof caseKey === 'number') {
-            if (caseKey === ekey) return EVAL(cases[i + 1], env)
-          } else if (Array.isArray(caseKey)) {
-            for (const k of caseKey) {
-              assert(typeof k === 'number', 'case key must be a number')
-              if (k === ekey) return EVAL(cases[i + 1], env)
-            }
+        const newEnv = new Map(env)
+        for (let i = 0; i < args.length; i++) {
+          newEnv.set(paramNames[i], args[i])
+        }
+        for (const body of bodies) {
+          EVAL(body, newEnv)
+        }
+        return EVAL(lastBody, newEnv)
+      }
+      funcEnv.set(fname, fn)
+      return []
+    }
+    case 'let':
+    case 'loop': {
+      assert(rest.length >= 2, name + ' must have at least 2 arguments')
+      const [bindings, ...bodies] = rest
+      assert(Array.isArray(bindings), 'second argument must be a list')
+      assert(bindings.length % 2 === 0, 'bindings must be of even length')
+      const newEnv = new Map(env)
+      const bindingNames = []
+      for (let i = 0; i < bindings.length; i += 2) {
+        const key = bindings[i]
+        assert(key instanceof UnsSymbol, 'key must be a symbol')
+        const { name } = key
+        bindingNames.push(name)
+        newEnv.set(name, EVAL(bindings[i + 1], newEnv))
+      }
+      const butLastBodies = bodies.slice(0, -1)
+      const lastBody = bodies.at(-1)
+      if (name === 'let') {
+        for (const body of butLastBodies) {
+          EVAL(body, newEnv)
+        }
+        return EVAL(lastBody, newEnv)
+      }
+      while (true) {
+        for (const body of butLastBodies) {
+          EVAL(body, newEnv)
+        }
+        const result = EVAL(lastBody, newEnv)
+        if (!(result instanceof Recur)) return result
+        const { args } = result
+        assert(
+          bindingNames.length === args.length,
+          'wrong number of arguments to recur',
+        )
+        for (let i = 0; i < args.length; i++) {
+          newEnv.set(bindingNames[i], args[i])
+        }
+      }
+    }
+    case 'recur': {
+      return new Recur(rest.map((x) => EVAL(x, env)))
+    }
+    case 'switch': {
+      assert(rest.length >= 2, 'switch must have at least 2 arguments')
+      assert(
+        rest.length % 2 === 0,
+        'switch must have an even number of arguments',
+      )
+      const [key, ...cases] = rest
+      const ekey = EVAL(key, env)
+      for (let i = 0; i < cases.length; i += 2) {
+        const caseKey = cases[i]
+        if (typeof caseKey === 'number') {
+          if (caseKey === ekey) return EVAL(cases[i + 1], env)
+        } else if (Array.isArray(caseKey)) {
+          for (const k of caseKey) {
+            assert(typeof k === 'number', 'case key must be a number')
+            if (k === ekey) return EVAL(cases[i + 1], env)
           }
         }
-        return EVAL(cases.at(-1), env)
       }
+      return EVAL(cases.at(-1), env)
     }
   }
 
-  const [fn, ...args] = ast.map((x) => EVAL(x, env))
-  assert(
-    typeof fn === 'function',
-    'first element must be a function: ' + fn + ' ' + ast[0],
-  )
-  return fn(...args)
+  const fn = funcEnv.get(name)
+  assert(fn, 'undefined function: ' + name)
+  return fn(...rest.map((x) => EVAL(x, env)))
 }
 
 const print = (x) => {
@@ -281,12 +268,22 @@ const run = (s) => {
 
 const tests = [
   [`3`, `[add 1 2] ; but a comment`],
+  [
+    `3`,
+    `[add 1 ; line comment 2
+     2] ; end comment`,
+  ],
   [`2`, `[add 1 [sub 3 2]]`],
+
+  [`'hello world'`, `'hello world'`],
+  [`'hello world'`, `'hello world`], // unterminated strings work
+
   [`2`, `[if 0 1 2]`],
   [`1`, `[if 1 1 2]`],
   [`[]`, `[func inc [x] [add x 1]]`],
   [`2`, `[inc 1]`],
   [`5`, `[let [x 2 y 3] [add x y]]`],
+  [`5`, `[let [x 2] [let [y 3] [add x y]]]`],
   [`55`, `[loop [r 0 i 10] [if i [recur [add r i] [sub i 1]] r]]`],
   [`[]`, `[func switcher [x] [switch x 0 'zero' 1 'one' 'default']]`],
   [`['zero' 'one' 'default']`, `[list [switcher 0] [switcher 1] [switcher 2]]`],
