@@ -127,15 +127,13 @@ const funcEnv = new Map()
 const EVAL = (ast, env) => {
   assert(ast !== undefined, 'ast is undefined')
   assert(ast !== null, 'ast is null')
-  if (!Array.isArray(ast)) {
-    if (ast instanceof UnsSymbol) {
-      const { name } = ast
-      if (env.has(name)) return env.get(name)
-      throw new Error(`undefined symbol ${name}`)
-    }
-    if (typeof ast === 'number' || typeof ast === 'string') return ast
-    throw new Error(`cannot eval ${ast}`)
+  if (ast instanceof UnsSymbol) {
+    const { name } = ast
+    assert(env.has(name), 'undefined symbol: ' + name)
+    return env.get(name)
   }
+  if (typeof ast === 'number' || typeof ast === 'string') return ast
+  assert(Array.isArray(ast), 'ast must be an array at this point')
   if (ast.length === 0) return ast
   const [first, ...rest] = ast
   assert(first instanceof UnsSymbol, 'first element must be a symbol: ' + first)
@@ -227,7 +225,7 @@ const EVAL = (ast, env) => {
       const [key, ...cases] = rest
       const ekey = EVAL(key, env)
       assert(typeof ekey === 'number', 'switch key must be a number')
-      for (let i = 0; i < cases.length-1; i += 2) {
+      for (let i = 0; i < cases.length - 1; i += 2) {
         const caseKey = cases[i]
         if (typeof caseKey === 'number') {
           if (caseKey === ekey) return EVAL(cases[i + 1], env)
