@@ -37,9 +37,9 @@ you can define functions with `func`:
 [func inc [n] [add n 1]] ; => []
 [inc 1] ; => 2
 ```
-you don't have closures or anonymous functions and function names are not values()
+you don't have closures or anonymous functions and function names are not values
 
-you can make local variables with `let`:
+you have local variables with `let`:
 ```
 [let [x 1] [add x 1]] ; => 2
 [let [x 1 y x] [add y 1]] ; => 2
