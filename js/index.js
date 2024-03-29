@@ -267,7 +267,7 @@ funcEnv.set('sub', (a, b) => a - b)
 
 funcEnv.set('list', (...args) => args)
 
-const run = (s) => print(EVAL(parse(s), funcEnv))
+const run = (s) => print(EVAL(parse(s), new Map()))
 
 const tests = [
   [`3`, `[add 1 2] ; but a comment`],
