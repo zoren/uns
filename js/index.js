@@ -30,7 +30,7 @@ const prompt = () => {
       return
     }
     try {
-      console.log(run(line, env))
+      console.log(run(line))
     } catch (e) {
       console.log(e.message)
     }
