@@ -280,7 +280,7 @@ const run = (s) => {
 }
 
 const tests = [
-  [`3`, `[add 1 2]`],
+  [`3`, `[add 1 2] ; but a comment`],
   [`2`, `[add 1 [sub 3 2]]`],
   [`2`, `[if 0 1 2]`],
   [`1`, `[if 1 1 2]`],
