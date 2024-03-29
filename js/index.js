@@ -127,17 +127,17 @@ const funcEnv = new Map()
 const EVAL = (ast, env) => {
   assert(ast !== undefined, 'ast is undefined')
   assert(ast !== null, 'ast is null')
+  if (typeof ast === 'number' || typeof ast === 'string') return ast
   if (ast instanceof UnsSymbol) {
     const { name } = ast
     assert(env.has(name), 'undefined symbol: ' + name)
     return env.get(name)
   }
-  if (typeof ast === 'number' || typeof ast === 'string') return ast
   assert(Array.isArray(ast), 'ast must be an array at this point')
   if (ast.length === 0) return ast
   const [first, ...rest] = ast
   assert(first instanceof UnsSymbol, 'first element must be a symbol: ' + first)
-  const name = first.name
+  const { name } = first
   switch (name) {
     case 'if': {
       assert(rest.length === 3, 'if must have 3 arguments')
