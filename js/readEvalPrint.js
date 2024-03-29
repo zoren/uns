@@ -11,13 +11,6 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error(msg)
 }
 
-const isWhitespace = (c) => c === ' ' || c === '\n'
-const isSymbol = (c) => /[a-z0-9.=]|-/.test(c)
-const isControl = (c) => {
-  const code = c.charCodeAt(0)
-  return code < 32 || code === 127
-}
-
 const firstToken = (s) => {
   if (s.length === 0) return null
   const c = s[0]
@@ -33,19 +26,24 @@ const firstToken = (s) => {
     }
     case ' ':
     case '\n': {
-      const i = scan(isWhitespace)
+      const i = scan((c) => c === ' ' || c === '\n')
       return [{ text: s.slice(0, i), tokenType: 'whitespace' }, s.slice(i)]
     }
     case '[':
     case ']':
       return [{ text: c, tokenType: 'bracket' }, s.slice(1)]
-    case "'": {
-      const i = scan((c) => c !== "'" && !isControl(c))
+    case `'`: {
+      const isControlChar = (c) => {
+        const code = c.charCodeAt(0)
+        return code < 32 || code === 127
+      }
+      const i = scan((c) => c !== "'" && !isControlChar(c))
       return [{ text: s.slice(1, i), tokenType: 'string' }, s.slice(i + 1)]
     }
     default:
-      assert(isSymbol(c), `illegal character ${c}`)
-      const i = scan(isSymbol)
+      const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
+      assert(isSymbolChar(c), `illegal character ${c}`)
+      const i = scan(isSymbolChar)
       return [{ text: s.slice(0, i), tokenType: 'symbol' }, s.slice(i)]
   }
 }
@@ -58,6 +56,8 @@ class UnsSymbol {
     return this.name
   }
 }
+
+const isSymbol = (form) => form instanceof UnsSymbol
 
 const parse = (s) => {
   let currentToken = null
@@ -128,7 +128,7 @@ const EVAL = (ast, env) => {
   assert(ast !== undefined, 'ast is undefined')
   assert(ast !== null, 'ast is null')
   if (typeof ast === 'number' || typeof ast === 'string') return ast
-  if (ast instanceof UnsSymbol) {
+  if (isSymbol(ast)) {
     const { name } = ast
     assert(env.has(name), 'undefined symbol: ' + name)
     return env.get(name)
@@ -136,7 +136,7 @@ const EVAL = (ast, env) => {
   assert(Array.isArray(ast), 'ast must be an array at this point')
   if (ast.length === 0) return ast
   const [first, ...rest] = ast
-  assert(first instanceof UnsSymbol, 'first element must be a symbol: ' + first)
+  assert(isSymbol(first), 'first element must be a symbol: ' + first)
   const { name } = first
   switch (name) {
     case 'if': {
@@ -149,11 +149,11 @@ const EVAL = (ast, env) => {
     }
     case 'func': {
       assert(rest.length >= 3, 'func must have at least 3 arguments')
-      assert(rest[0] instanceof UnsSymbol, 'first argument must be a symbol')
+      assert(isSymbol(rest[0]), 'first argument must be a symbol')
       const fname = rest[0].name
       assert(Array.isArray(rest[1]), 'second argument must be a list')
       const paramNames = rest[1].map((x) => {
-        assert(x instanceof UnsSymbol, 'parameters must be symbols')
+        assert(isSymbol(x), 'parameters must be symbols')
         return x.name
       })
       const bodies = rest.slice(2, -1)
@@ -185,7 +185,7 @@ const EVAL = (ast, env) => {
       const bindingNames = []
       for (let i = 0; i < bindings.length; i += 2) {
         const key = bindings[i]
-        assert(key instanceof UnsSymbol, 'key must be a symbol')
+        assert(isSymbol(key), 'key must be a symbol')
         const { name } = key
         bindingNames.push(name)
         newEnv.set(name, EVAL(bindings[i + 1], newEnv))
@@ -258,7 +258,7 @@ const print = (x) => {
     //   return '#<function>'
   }
   if (Array.isArray(x)) return `[${x.map(print).join(' ')}]`
-  if (x instanceof UnsSymbol) return x.name
+  if (isSymbol(x)) return x.name
   // if (x instanceof Recur) return `#<recur ${print(x.args)}>`
   throw new Error(`cannot print ${x}`)
 }
