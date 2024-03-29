@@ -215,9 +215,8 @@ const EVAL = (ast, env) => {
         }
       }
     }
-    case 'recur': {
+    case 'recur':
       return new Recur(rest.map((x) => EVAL(x, env)))
-    }
     case 'switch': {
       assert(rest.length >= 2, 'switch must have at least 2 arguments')
       assert(
@@ -247,12 +246,17 @@ const EVAL = (ast, env) => {
 }
 
 const print = (x) => {
+  switch (typeof x) {
+    case 'string':
+      return `'${x}'`
+    case 'number':
+      return String(x)
+    case 'function':
+      return '#<function>'
+  }
   if (Array.isArray(x)) return `[${x.map(print).join(' ')}]`
   if (x instanceof UnsSymbol) return x.name
   if (x instanceof Recur) return `#<recur ${print(x.args)}>`
-  if (typeof x === 'string') return `'${x}'`
-  if (typeof x === 'number') return String(x)
-  if (typeof x === 'function') return '#<function>'
   throw new Error(`cannot print ${x}`)
 }
 
