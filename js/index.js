@@ -124,6 +124,18 @@ const parse = (s) => {
   return readForm()
 }
 
+const makeEnv = (parent) => {
+  const env = new Map()
+  env.parent = parent
+  return env
+}
+
+class Recur {
+  constructor(args) {
+    this.args = args
+  }
+}
+
 const funcEnv = new Map()
 
 const EVAL = (ast, env) => {
@@ -180,6 +192,49 @@ const EVAL = (ast, env) => {
         funcEnv.set(fname, fn)
         return []
       }
+      case 'let':
+      case 'loop': {
+        assert(rest.length >= 2, name + ' must have at least 2 arguments')
+        const [bindings, ...bodies] = rest
+        assert(Array.isArray(bindings), 'second argument must be a list')
+        assert(bindings.length % 2 === 0, 'bindings must be of even length')
+        const newEnv = new Map(env)
+        const bindingNames = []
+        for (let i = 0; i < bindings.length; i += 2) {
+          const key = bindings[i]
+          assert(key instanceof UnsSymbol, 'key must be a symbol')
+          const { name } = key
+          bindingNames.push(name)
+          newEnv.set(name, EVAL(bindings[i + 1], newEnv))
+        }
+        const butLastBodies = bodies.slice(0, -1)
+        const lastBody = bodies.at(-1)
+        if (name === 'let') {
+          for (const body of butLastBodies) {
+            EVAL(body, newEnv)
+          }
+          return EVAL(lastBody, newEnv)
+        } else {
+          while (true) {
+            for (const body of butLastBodies) {
+              EVAL(body, newEnv)
+            }
+            const result = EVAL(lastBody, newEnv)
+            if (!(result instanceof Recur)) return result
+            const { args } = result
+            assert(
+              bindingNames.length === args.length,
+              'wrong number of arguments to recur',
+            )
+            for (let i = 0; i < args.length; i++) {
+              newEnv.set(bindingNames[i], args[i])
+            }
+          }
+        }
+      }
+      case 'recur': {
+        return new Recur(rest.map((x) => EVAL(x, env)))
+      }
     }
   }
 
@@ -214,6 +269,8 @@ const tests = [
   [`1`, `[if 1 1 2]`],
   [`[]`, `[func inc [x] [add x 1]]`],
   [`2`, `[inc 1]`],
+  [`5`, `[let [x 2 y 3] [add x y]]`],
+  [`55`, `[loop [r 0 i 10] [if i [recur [add r i] [sub i 1]] r]]`],
 ]
 let i = 0
 for (const [expected, input] of tests) {
