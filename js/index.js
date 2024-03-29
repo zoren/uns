@@ -55,6 +55,15 @@ const allTokens = (s) => {
   return tokens
 }
 
+class UnsSymbol {
+  constructor(name) {
+    this.name = name
+  }
+  toString() {
+    return this.name
+  }
+}
+
 const parse = (s) => {
   let currentToken = null
   const next = () => {
@@ -94,7 +103,7 @@ const parse = (s) => {
         if (!isNaN(n)) {
           return n
         }
-        return text
+        return new UnsSymbol(text)
       }
       case 'bracket':
         if (text === '[') {
@@ -115,4 +124,63 @@ const parse = (s) => {
   return readForm()
 }
 
-console.dir(parse(`[hello 324 0x20 'wor ld' 0x20]`))
+const assert = (cond, msg) => {
+  if (!cond) throw new Error(msg)
+}
+
+const EVAL = (ast, env) => {
+  if (!Array.isArray(ast)) {
+    if (typeof ast === 'number' || typeof ast === 'string') return ast
+    if (ast instanceof UnsSymbol) return env.get(ast.name)
+    if (Array.isArray(ast)) return ast.map((x) => EVAL(x, env))
+    return ast
+  }
+  if (ast.length === 0) return ast
+  const [first, ...rest] = ast
+  if (first instanceof UnsSymbol) {
+    const name = first.name
+    switch (name) {
+      case 'if': {
+        const [cond, then, else_] = rest
+        const econd = EVAL(cond, env)
+        assert(typeof econd === 'number', 'condition must be a number')
+        return EVAL(econd !== 0 ? then : else_, env)
+      }
+    }
+  }
+
+  const [fn, ...args] = ast.map((x) => EVAL(x, env))
+  assert(typeof fn === 'function', 'first element must be a function')
+  return fn(...args)
+}
+
+const print = (x) => {
+  if (Array.isArray(x)) {
+    return `[${x.map(print).join(' ')}]`
+  }
+  return String(x)
+}
+
+const env = new Map()
+env.set('add', (a, b) => a + b)
+env.set('sub', (a, b) => a - b)
+
+const run = (s) => {
+  console.log(s)
+  const form = parse(s)
+  return print(EVAL(form, env))
+}
+
+const tests = [
+  [`3`, `[add 1 2]`],
+  [`2`, `[add 1 [sub 3 2]]`],
+  [`2`, `[if 0 1 2]`],
+  [`1`, `[if 1 1 2]`],
+]
+let i = 0
+for (const [expected, input] of tests) {
+  const result = run(input)
+  assert(result === expected, `expected ${expected}, got ${result}`)
+  i++
+}
+console.log(`ran ${i} tests`)
