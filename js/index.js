@@ -9,6 +9,10 @@
 
 const isWhitespace = (c) => c === ' ' || c === '\n'
 const isSymbol = (c) => /[a-z0-9.=]|-/.test(c)
+const isControl = (c) => {
+  const code = c.charCodeAt(0)
+  return code < 32 || code === 127
+}
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg)
@@ -36,7 +40,7 @@ const firstToken = (s) => {
     case ']':
       return [{ text: c, tokenType: 'bracket' }, s.slice(1)]
     case "'": {
-      const i = scan((c) => c !== "'")
+      const i = scan((c) => c !== "'" && !isControl(c))
       return [{ text: s.slice(1, i), tokenType: 'string' }, s.slice(i + 1)]
     }
     default:
