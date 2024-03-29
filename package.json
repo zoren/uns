@@ -1,0 +1,17 @@
+{
+  "name": "uns",
+  "version": "1.0.0",
+  "description": "uns is a lispy programming language using primarily the characters one can reach without using the shift key",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "all",
+    "semi": false
+  }
+}
