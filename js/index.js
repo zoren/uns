@@ -68,21 +68,20 @@ class UnsSymbol {
 
 const parse = (s) => {
   let currentToken = null
+
   const next = () => {
-    const pnext = () => {
-      if (s.length === 0) return null
-      let [token, newS] = firstToken(s)
+    do {
+      if (s.length === 0) {
+        currentToken = null
+        return
+      }
+      let [ntoken, newS] = firstToken(s)
       s = newS
-      return token
-    }
-    let token = pnext()
-    while (
-      token &&
-      (token.tokenType === 'whitespace' || token.tokenType === 'comment')
-    ) {
-      token = pnext()
-    }
-    currentToken = token
+      const { tokenType } = ntoken
+      if (tokenType === 'whitespace' || tokenType === 'comment') continue
+      currentToken = ntoken
+      return
+    } while (true)
   }
 
   next()
