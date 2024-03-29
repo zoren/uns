@@ -263,8 +263,33 @@ const print = (x) => {
   throw new Error(`cannot print ${x}`)
 }
 
-funcEnv.set('add', (a, b) => a + b)
-funcEnv.set('sub', (a, b) => a - b)
+for (const [name, fn] of [
+  ['add', (a, b) => a + b],
+  ['sub', (a, b) => a - b],
+
+  ['and', (a, b) => a & b],
+  ['or', (a, b) => a | b],
+]) {
+  funcEnv.set(name, (a, b) => {
+    assert(typeof a === 'number', 'first argument must be a number')
+    assert(typeof b === 'number', 'second argument must be a number')
+    return fn(a, b)
+  })
+}
+
+for (const [name, fn] of [
+  ['eq', (a, b) => a === b],
+  ['lt', (a, b) => a < b],
+  ['le', (a, b) => a <= b],
+  ['gt', (a, b) => a > b],
+  ['ge', (a, b) => a >= b],
+]) {
+  funcEnv.set(name, (a, b) => {
+    assert(typeof a === 'number', 'first argument must be a number')
+    assert(typeof b === 'number', 'second argument must be a number')
+    return Number(fn(a, b))
+  })
+}
 
 funcEnv.set('list', (...args) => args)
 
