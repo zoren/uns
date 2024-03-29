@@ -7,8 +7,6 @@
 // only 32 bit signed integers are supported for now
 // all other characters are illegal
 
-import { text } from 'stream/consumers'
-
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg)
 }
@@ -90,14 +88,12 @@ const parse = (s) => {
       case 'string':
         return text
       case 'symbol': {
-        if (text.startsWith('0x')) {
-          const h = parseInt(text.slice(2), 16)
-          assert(!isNaN(h), `illegal hex number ${text}`)
-          return h
-        }
-        const n = parseInt(text, 10)
-        if (!isNaN(n)) {
-          return n
+        try {
+          const bi = BigInt(text)
+          assert(-0x80000000n <= bi && bi <= 0x7fffffffn, `number out of range`)
+          return Number(bi)
+        } catch (e) {
+          if (!(e instanceof SyntaxError)) throw e
         }
         return new UnsSymbol(text)
       }
@@ -275,7 +271,7 @@ for (const [name, fn] of [
   funcEnv.set(name, (a, b) => {
     assert(typeof a === 'number', 'first argument must be a number')
     assert(typeof b === 'number', 'second argument must be a number')
-    return fn(a, b)
+    return fn(a, b) | 0
   })
 }
 
