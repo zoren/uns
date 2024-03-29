@@ -50,17 +50,6 @@ const firstToken = (s) => {
   }
 }
 
-const allTokens = (s) => {
-  const tokens = []
-  let rest = s
-  while (rest.length > 0) {
-    const [token, newRest] = firstToken(rest)
-    tokens.push(token)
-    rest = newRest
-  }
-  return tokens
-}
-
 class UnsSymbol {
   constructor(name) {
     this.name = name
