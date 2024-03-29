@@ -70,7 +70,7 @@
       0]]]
 
 [let
-  [s [active 'hej du']
+  [s [active 'hej [du] ; ']
     start [nth s 0]
     len [nth s 1]]
   [get-tokens start [add start len]]]
