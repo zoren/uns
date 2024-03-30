@@ -57,6 +57,17 @@ const makeLexer = (inputString) => {
   }
 }
 
+const textToNumberOrSymbol = (text) => {
+  try {
+    const bi = BigInt(text)
+    assert(-0x80000000n <= bi && bi <= 0x7fffffffn, `number out of i32 range`)
+    return Number(bi)
+  } catch (e) {
+    if (!(e instanceof SyntaxError)) throw e
+  }
+  return symbol(text)
+}
+
 export const parse = (sArg) => {
   const lexer = makeLexer(sArg)
   let currentToken = null
@@ -80,19 +91,8 @@ export const parse = (sArg) => {
     switch (tokenType) {
       case 'string':
         return text
-      case 'word': {
-        try {
-          const bi = BigInt(text)
-          assert(
-            -0x80000000n <= bi && bi <= 0x7fffffffn,
-            `number out of i32 range`,
-          )
-          return Number(bi)
-        } catch (e) {
-          if (!(e instanceof SyntaxError)) throw e
-        }
-        return symbol(text)
-      }
+      case 'word':
+        return textToNumberOrSymbol(text)
       case '[': {
         const list = []
         while (true) {
