@@ -10,6 +10,12 @@ const assertSymbol = (form, msg) => {
   return name
 }
 
+const pairwise = function* (arr) {
+  for (let i = 0; i < arr.length - 1; i += 2) {
+    yield arr.slice(i, i + 2)
+  }
+}
+
 class Recur {
   constructor(args) {
     this.args = args
@@ -82,15 +88,10 @@ export const compile = (ast) => {
       const [bindings, ...bodies] = rest
       assert(Array.isArray(bindings), 'second argument must be a list')
       assert(bindings.length % 2 === 0, 'bindings must be of even length')
-
-      const cbindings = []
-      for (let i = 0; i < bindings.length; i += 2) {
-        cbindings.push([
-          assertSymbol(bindings[i], 'key must be a symbol'),
-          compile(bindings[i + 1]),
-        ])
-      }
-
+      const cbindings = [...pairwise(bindings)].map(([name, form]) => [
+        assertSymbol(name, 'key must be a symbol'),
+        compile(form),
+      ])
       const butLastBodies = bodies.slice(0, -1).map(compile)
       const lastBody = compile(bodies.at(-1))
       if (firstName === 'let') {
@@ -143,8 +144,7 @@ export const compile = (ast) => {
         assert(!usedKeys.has(k), 'duplicate case key: ' + k)
         usedKeys.add(k)
       }
-      for (let i = 0; i < cases.length - 1; i += 2) {
-        const caseKey = cases[i]
+      for (const [caseKey, caseBody] of pairwise(cases)) {
         const cKeys = []
         if (typeof caseKey === 'number') {
           assert(!isNaN(caseKey), 'case key must be a number')
@@ -162,7 +162,7 @@ export const compile = (ast) => {
         } else {
           assert(false, 'illegal case key')
         }
-        cCases.push([cKeys, compile(cases[i + 1])])
+        cCases.push([cKeys, compile(caseBody)])
       }
       const cdefaultCase = compile(cases.at(-1))
       return (env) => {
