@@ -26,8 +26,10 @@ class Recur {
   }
 }
 
+const isInt32 = (x) => typeof x === 'number' && !isNaN(x) && (x | 0) === x
+
 export const compile = (ast) => {
-  if (typeof ast === 'number' || typeof ast === 'string') return () => ast
+  if (isInt32(ast) || typeof ast === 'string') return () => ast
   {
     const symbolName = isSymbol(ast)
     if (symbolName) {
@@ -53,10 +55,7 @@ export const compile = (ast) => {
       const celse = compile(rest[2])
       return (env, fenv) => {
         const econd = ccond(env, fenv)
-        rtAssert(
-          typeof econd === 'number' && !isNaN(econd),
-          'condition must be a number',
-        )
+        rtAssert(isInt32(econd) && !isNaN(econd), 'condition must be a number')
         return (econd !== 0 ? cthen : celse)(env, fenv)
       }
     }
@@ -149,16 +148,13 @@ export const compile = (ast) => {
       }
       for (const [caseKey, caseBody] of pairwise(cases)) {
         const cKeys = []
-        if (typeof caseKey === 'number') {
+        if (isInt32(caseKey)) {
           ctAssert(!isNaN(caseKey), 'case key must be a number')
           checkDuplicateKeys(caseKey)
           cKeys.push(caseKey)
         } else if (Array.isArray(caseKey)) {
           for (const k of caseKey) {
-            ctAssert(
-              typeof k === 'number',
-              'case key in list must be a number ' + k,
-            )
+            ctAssert(isInt32(k), 'case key in list must be a number ' + k)
             checkDuplicateKeys(k)
             cKeys.push(k)
           }
@@ -170,7 +166,7 @@ export const compile = (ast) => {
       const cdefaultCase = compile(cases.at(-1))
       return (env) => {
         const ekey = ckey(env)
-        rtAssert(typeof ekey === 'number', 'case key must be a number')
+        rtAssert(isInt32(ekey), 'case key must be a number: ' + ekey)
         for (const [cKeys, cBody] of cCases) {
           for (const k of cKeys) {
             if (k === ekey) return cBody(env)
