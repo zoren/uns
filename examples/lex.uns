@@ -1,8 +1,12 @@
 [func assert [c message] [if c 0 [abort message]]]
 
+[func not [x] [eq x 0]]
+
 [func inc [x] [add x 1]]
 
 [func dec [x] [sub x 1]]
+
+[func is-negative [x] [lt x 0]]
 
 [func is-whitespace [c]
     [switch c
@@ -98,13 +102,17 @@
     p]]
 
 [func alloc-char [value]
+  [assert [is-between 32 value 126] 'invalid ascii character']
   [let [p [alloc 8]]
     [store32 p 15]
     [store32 [add p 4] value]
     p]]
 
+[func align4 [x] [and [add x 3] [xor 3 -1]]]
+
 [func alloc-string-from-bytes [pointer size]
-  [let [s [alloc [add size 8]]]
+  [assert [not [is-negative size]] 'alloc-string-from-bytes negative size']
+  [let [s [alloc [align4 [add size 8]]]]
     [store32 s 17]
     [store32 [add s 4] size]
     [memory-copy [add s 8] pointer size]

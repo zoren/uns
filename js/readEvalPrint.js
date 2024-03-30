@@ -268,6 +268,7 @@ for (const [name, fn] of [
 
   ['and', (a, b) => a & b],
   ['or', (a, b) => a | b],
+  ['xor', (a, b) => a ^ b],
 ]) {
   funcEnv.set(name, (a, b) => {
     assert(typeof a === 'number', 'first argument must be a number')
