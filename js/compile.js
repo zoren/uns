@@ -81,34 +81,33 @@ export const compile = (ast) => {
       assert(Array.isArray(bindings), 'second argument must be a list')
       assert(bindings.length % 2 === 0, 'bindings must be of even length')
 
-      const bindingNames = []
-      const cBindExprs = []
+      const cbindings = []
       for (let i = 0; i < bindings.length; i += 2) {
         const key = bindings[i]
         const name = isSymbol(key)
         assert(name, 'key must be a symbol')
-        bindingNames.push(name)
-        cBindExprs.push(compile(bindings[i + 1]))
+        cbindings.push([name, compile(bindings[i + 1])])
       }
 
       const butLastBodies = bodies.slice(0, -1).map(compile)
       const lastBody = compile(bodies.at(-1))
-      const bindingCount = bindingNames.length
       if (firstName === 'let') {
         return (env, fenv) => {
           const newEnv = new Map(env)
-          for (let i = 0; i < bindingCount; i++) {
-            newEnv.set(bindingNames[i], cBindExprs[i](newEnv, fenv))
+          for (const [name, cBindExpr] of cbindings) {
+            newEnv.set(name, cBindExpr(newEnv, fenv))
           }
           for (const body of butLastBodies) body(newEnv, fenv)
           return lastBody(newEnv, fenv)
         }
       }
+      const bindingNames = cbindings.map(([name]) => name)
+      const bindingCount = cbindings.length
       // todo check statically args to cont
       return (env, fenv) => {
         const newEnv = new Map(env)
-        for (let i = 0; i < bindingCount; i++) {
-          newEnv.set(bindingNames[i], cBindExprs[i](newEnv, fenv))
+        for (const [name, cBindExpr] of cbindings) {
+          newEnv.set(name, cBindExpr(newEnv, fenv))
         }
         while (true) {
           for (const body of butLastBodies) body(newEnv, fenv)
