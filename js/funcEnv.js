@@ -10,8 +10,8 @@ export const makeFuncEnv = () => {
     ['sub', (a, b) => a - b],
     ['mul', (a, b) => a * b],
 
-    ['and', (a, b) => a & b],
-    ['or', (a, b) => a | b],
+    ['bit-and', (a, b) => a & b],
+    ['bit-or', (a, b) => a | b],
     ['xor', (a, b) => a ^ b],
     ['shift-right', (a, b) => a >> b],
   ]) {

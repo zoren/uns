@@ -252,9 +252,6 @@ export const print = (x) => {
       return `'${x}'`
     case 'number':
       return String(x)
-    // functions aren't values
-    // case 'function':
-    //   return '#<function>'
   }
   if (Array.isArray(x)) return `[${x.map(print).join(' ')}]`
   if (isSymbol(x)) return x.name

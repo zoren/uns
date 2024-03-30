@@ -14,14 +14,14 @@
       1
       0]]
 
-[func is-between [lower c upper] [and [le lower c] [le c upper]]]
+[func is-between [lower c upper] [bit-and [le lower c] [le c upper]]]
 
 [func is-digit [c] [is-between 0x30 c 0x39]]
 
 [func is-ident-char [c]
-  [or
+  [bit-or
     [is-between 0x61 c 0x7a] ; a-z
-    [or
+    [bit-or
       [is-between 0x2d c 0x2e] ; -.
       [is-digit c]]]]
 
@@ -65,7 +65,7 @@
 
         [abort 'unexpected character' c]]]]]
 
-[func is-align4 [x] [eq [and x 3] 0]]
+[func is-align4 [x] [eq [bit-and x 3] 0]]
 
 ;; init memory top
 [store32 0 4]
@@ -108,7 +108,7 @@
     [store32 [add p 4] value]
     p]]
 
-[func align4 [x] [and [add x 3] [xor 3 -1]]]
+[func align4 [x] [bit-and [add x 3] [xor 3 -1]]]
 
 [func alloc-string-from-bytes [pointer size]
   [assert [not [is-negative size]] 'alloc-string-from-bytes negative size']
@@ -145,7 +145,7 @@
       [store8 [add s 8] 0x30] ; '0'
       [store8 [add s 9] 0x78] ; 'x'
       [store8 [add s 10] [add 0x30 [shift-right value 4]]]
-      [store8 [add s 11] [add 0x30 [and value 0xf]]]
+      [store8 [add s 11] [add 0x30 [bit-and value 0xf]]]
       s]]]
 
 [print-object [alloc-i32 42]]
