@@ -1,5 +1,7 @@
+import { isInt32 } from './lib.js'
+
 const assert = (cond, msg) => {
-  if (!cond) throw new Error("built-in func assert" + msg)
+  if (!cond) throw new Error('built-in func assert' + msg)
 }
 
 export const makeFuncEnv = () => {
@@ -16,8 +18,8 @@ export const makeFuncEnv = () => {
     ['shift-right', (a, b) => a >> b],
   ]) {
     funcEnv.set(name, (a, b) => {
-      assert(typeof a === 'number', 'first argument must be a number')
-      assert(typeof b === 'number', 'second argument must be a number')
+      assert(isInt32(a), 'first argument must be a number')
+      assert(isInt32(b), 'second argument must be a number')
       return fn(a, b) | 0
     })
   }
@@ -31,8 +33,8 @@ export const makeFuncEnv = () => {
     ['ge', (a, b) => a >= b],
   ]) {
     funcEnv.set(name, (a, b) => {
-      assert(typeof a === 'number', 'first argument must be a number')
-      assert(typeof b === 'number', 'second argument must be a number')
+      assert(isInt32(a), 'first argument must be a number')
+      assert(isInt32(b), 'second argument must be a number')
       return Number(fn(a, b))
     })
   }
@@ -46,7 +48,7 @@ export const makeFuncEnv = () => {
 
   funcEnv.set('nth', (list, n) => {
     assert(Array.isArray(list), 'first argument must be a list')
-    assert(typeof n === 'number', 'second argument must be a number')
+    assert(isInt32(n), 'second argument must be a number')
     assert(n >= 0 && n < list.length, 'index out of bounds')
     return list[n]
   })
@@ -61,10 +63,7 @@ export const makeFuncEnv = () => {
   funcEnv.set('memory-pages', () => memoryPages)
 
   const assertAddress = (addr, fname) => {
-    assert(
-      typeof addr === 'number',
-      fname + ': address must be a number ' + typeof addr,
-    )
+    assert(isInt32(addr), fname + ': address must be a number ' + typeof addr)
     assert(addr >= 0 && addr < memory.length, fname + ': address out of bounds')
   }
 
@@ -97,7 +96,7 @@ export const makeFuncEnv = () => {
   funcEnv.set('memory-copy', (dest, src, size) => {
     assertAddress(dest, 'memory-copy')
     assertAddress(src, 'memory-copy')
-    assert(typeof size === 'number', 'memory-copy: length must be a number')
+    assert(isInt32(size), 'memory-copy: length must be a number')
     assert(size >= 0, 'memory-copy: length must be non-negative')
     assert(
       dest + size <= memory.length,
@@ -134,7 +133,7 @@ export const makeFuncEnv = () => {
 
   funcEnv.set('store8', (addr, value) => {
     assertAddress(addr, 'store8')
-    assert(typeof value === 'number', 'store8: value must be a number')
+    assert(isInt32(value), 'store8: value must be a number')
     assert(value >= 0 && value < 256, 'store8: value out of bounds')
     memory[addr] = value
     return []
@@ -142,7 +141,7 @@ export const makeFuncEnv = () => {
 
   funcEnv.set('store32', (addr, value) => {
     assertAddress(addr, 'store32')
-    assert(typeof value === 'number', 'store32: value must be a number')
+    assert(isInt32(value), 'store32: value must be a number')
     // memory[addr] = value
     const view = new DataView(memory.buffer)
     view.setInt32(addr, value, true)

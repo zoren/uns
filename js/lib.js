@@ -18,3 +18,5 @@ export const symbol = (name) => {
   assert(name.length > 0, 'symbol name must not be empty')
   return new UnsSymbol(name)
 }
+
+export const isInt32 = (x) => typeof x === 'number' && !isNaN(x) && (x | 0) === x

@@ -1,3 +1,5 @@
+import { isInt32 } from './lib.js'
+
 const ctAssert = (cond, msg) => {
   if (!cond) throw new Error('COMPILE: ' + msg)
 }
@@ -25,8 +27,6 @@ class Recur {
     this.args = args
   }
 }
-
-const isInt32 = (x) => typeof x === 'number' && !isNaN(x) && (x | 0) === x
 
 export const compile = (ast) => {
   if (isInt32(ast) || typeof ast === 'string') return () => ast
@@ -76,6 +76,7 @@ export const compile = (ast) => {
             args.length === arity,
             'wrong number of arguments to function: ' + fname,
           )
+          // todo don't copy env
           const newEnv = new Map(env)
           for (let i = 0; i < arity; i++) newEnv.set(paramNames[i], args[i])
           for (const cbody of cbodies) cbody(newEnv, fenv)
