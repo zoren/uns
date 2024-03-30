@@ -4,6 +4,12 @@ const assert = (cond, msg) => {
 
 import { isSymbol } from './lib.js'
 
+const assertSymbol = (form, msg) => {
+  const name = isSymbol(form)
+  assert(name, msg)
+  return name
+}
+
 class Recur {
   constructor(args) {
     this.args = args
@@ -28,8 +34,7 @@ export const compile = (ast) => {
   assert(Array.isArray(ast), 'ast must be an array at this point')
   if (ast.length === 0) return () => ast
   const [first, ...rest] = ast
-  const firstName = isSymbol(first)
-  assert(firstName, 'first element must be a symbol: ' + first)
+  const firstName = assertSymbol(first, 'first element must be a symbol')
   switch (firstName) {
     case 'if': {
       assert(rest.length === 3, 'if must have 3 arguments')
@@ -48,14 +53,11 @@ export const compile = (ast) => {
     case 'func': {
       assert(rest.length >= 3, 'func must have at least 3 arguments')
 
-      const fname = isSymbol(rest[0])
-      assert(fname, 'first argument must be a symbol')
+      const fname = assertSymbol(rest[0], 'first argument must be a symbol')
       assert(Array.isArray(rest[1]), 'second argument must be a list')
-      const paramNames = rest[1].map((x) => {
-        const name = isSymbol(x)
-        assert(name, 'parameters must be symbols')
-        return name
-      })
+      const paramNames = rest[1].map((x) =>
+        assertSymbol(x, 'parameters must be symbols'),
+      )
       const cbodies = rest.slice(2, -1).map(compile)
       const clastBody = compile(rest.at(-1))
       const arity = paramNames.length
@@ -83,10 +85,10 @@ export const compile = (ast) => {
 
       const cbindings = []
       for (let i = 0; i < bindings.length; i += 2) {
-        const key = bindings[i]
-        const name = isSymbol(key)
-        assert(name, 'key must be a symbol')
-        cbindings.push([name, compile(bindings[i + 1])])
+        cbindings.push([
+          assertSymbol(bindings[i], 'key must be a symbol'),
+          compile(bindings[i + 1]),
+        ])
       }
 
       const butLastBodies = bodies.slice(0, -1).map(compile)
