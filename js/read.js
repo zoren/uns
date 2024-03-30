@@ -96,8 +96,9 @@ export const parse = (sArg) => {
       case '[': {
         const list = []
         while (true) {
-          assert(currentToken !== null, 'unexpected end of input')
-          if (currentToken.tokenType === ']') {
+          if (currentToken === null) return list
+          const { tokenType } = currentToken
+          if (tokenType === ']') {
             next()
             return list
           }

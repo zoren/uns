@@ -52,9 +52,11 @@ const prompt = () => {
       return
     }
     try {
-      const form = parse(line)()
-      const cform = compile(form)
-      console.log(print(cform(new Map(), funcEnv)))
+      const { readForms } = parse(line)
+      for (const form of readForms()) {
+        const cform = compile(form)
+        console.log(print(cform(new Map(), funcEnv)))
+      }
     } catch (e) {
       console.log(e.message)
     }
