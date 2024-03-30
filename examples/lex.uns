@@ -138,15 +138,24 @@
 [func int32-to-hex-string [value]
   [assert [not [is-negative value]] 'int32-to-hex-string negative value']
   [assert [le value 0xff] 'int32-to-hex-string value too large']
-  [let [string-size 4]
-    [let [s [alloc [add string-size 8]]]
-      [store32 s 17]
-      [store32 [add s 4] string-size]
-      [store8 [add s 8] 0x30] ; '0'
-      [store8 [add s 9] 0x78] ; 'x'
-      [store8 [add s 10] [add 0x30 [shift-right value 4]]]
-      [store8 [add s 11] [add 0x30 [bit-and value 0xf]]]
-      s]]]
+  [let [string-size 4
+        s [alloc [add string-size 8]]]
+    [store32 s 17]
+    [store32 [add s 4] string-size]
+    [store8 [add s 8] 0x30] ; '0'
+    [store8 [add s 9] 0x78] ; 'x'
+    [store8 [add s 10] [add 0x30 [shift-right value 4]]]
+    [store8 [add s 11] [add 0x30 [bit-and value 0xf]]]
+    s]]
+
+[func reverse-bytes [start end]
+  [loop [i start j end]
+    [if [lt i j]
+      [let [tmp [load8u i]]
+        [store8 i [load8u j]]
+        [store8 j tmp]
+        [cont [inc i] [dec j]]]
+      []]]]
 
 [print-object [alloc-i32 42]]
 
