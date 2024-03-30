@@ -4,7 +4,7 @@
 [func patient-gauss [n]
   [loop [i 0 r 0]
     [if [lt i [inc n]]
-      [recur [inc i] [add i r]]
+      [cont [inc i] [add i r]]
       r]]]
 
 [patient-gauss 10]

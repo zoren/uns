@@ -211,9 +211,9 @@ export const makeEvaluator = (funcEnv) => {
           }
         }
       }
-      case 'recur':
+      case 'cont':
         return new Recur(rest.map((x) => EVAL(x, env)))
-      case 'switch': {
+      case 'case': {
         assert(rest.length >= 2, 'switch must have at least 2 arguments')
         assert(
           rest.length % 2 === 0,

@@ -45,11 +45,11 @@ you have local variables with `let`:
 [let [x 1 y x] [add y 1]] ; => 2
 ```
 
-instead of recursion you use `loop` and `recur`:
+instead of recursion you use `loop` and `cont`:
 ```
 [loop [i 0 r 0]
   [if [lt i 11]
-    [recur [inc i] [add i r]]
+    [cont [inc i] [add i r]]
     r]] ; => 55
 ```
 

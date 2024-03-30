@@ -9,7 +9,7 @@
 [func is-negative [x] [lt x 0]]
 
 [func is-whitespace [c]
-    [switch c
+    [case c
       [0x09 0x0a 0x0d 0x20] ; '\t' '\n' '\r' ' '
       1
       0]]
@@ -28,30 +28,30 @@
 [func get-token [start end]
   [assert [lt start end] 'empty token']
   [let [c [load8u start]]
-    [switch c
+    [case c
 
       [0x09 0x0a 0x0d 0x20] ; '\t' '\n' '\r' ' '
       [loop [j [inc start]]
         [if [if [lt j end] [is-whitespace [load8u j]] 0]
-          [recur [inc j]]
+          [cont [inc j]]
           [list 1 start j j]]]
 
       0x27 ; '\''
       [loop [j [inc start]]
         [if [if [lt j end] [neq [load8u j] 0x27] 0]
-          [recur [inc j]]
+          [cont [inc j]]
           [list 2 [inc start] [dec j] [inc j]]]]
 
 ;      [0x30 0x31 0x32 0x33 0x34 0x35 0x36 0x37 0x38 0x39] ; '0' '1' '2' '3' '4' '5' '6' '7' '8' '9'
 ;      [loop [j [inc start]]
 ;        [if [if [lt j end] [is-digit [load8u j]] 0]
-;          [recur [inc j]]
+;          [cont [inc j]]
 ;          [list 3 start j j]]]
 
       0x3b ; ';'
       [loop [j [inc start]]
         [if [if [lt j end] [neq [load8u j] 0x0a] 0]
-          [recur [inc j]]
+          [cont [inc j]]
           [list 4 start j j]]]
 
       [0x5b 0x5d] ; '[' ']'
@@ -60,7 +60,7 @@
       [if [is-ident-char c]
         [loop [j [inc start]]
           [if [if [lt j end] [is-ident-char [load8u j]] 0]
-            [recur [inc j]]
+            [cont [inc j]]
             [list 6 start j j]]]
 
         [abort 'unexpected character' c]]]]]
@@ -157,7 +157,7 @@
     [if [lt i end]
       [let [token [get-token i end]]
         [print token]
-        [recur [nth token 2]]]
+        [cont [nth token 2]]]
       0]]]
 
 [func parse [s]
@@ -174,7 +174,7 @@
   [loop [i 32]
     [print-object [alloc-char i]]
     [if [lt i 126]
-      [recur [inc i]]
+      [cont [inc i]]
       []]]]
 
 [print-ascii]

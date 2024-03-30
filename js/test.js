@@ -19,12 +19,12 @@ const tests = [
   [`2`, `[inc 1]`],
   [`5`, `[let [x 2 y 3] [add x y]]`],
   [`5`, `[let [x 2] [let [y 3] [add x y]]]`],
-  [`55`, `[loop [r 0 i 10] [if i [recur [add r i] [sub i 1]] r]]`],
-  [`[]`, `[func switcher [x] [switch x 0 'zero' 1 'one' 'default']]`],
+  [`55`, `[loop [r 0 i 10] [if i [cont [add r i] [sub i 1]] r]]`],
+  [`[]`, `[func switcher [x] [case x 0 'zero' 1 'one' 'default']]`],
   [`['zero' 'one' 'default']`, `[list [switcher 0] [switcher 1] [switcher 2]]`],
-  [`'zero'`, `[switch 0 0 'zero' 'default']`],
-  [`'default'`, `[switch 1 0 'zero' 'default']`],
-  [`'default'`, `[switch 0 'default']`],
+  [`'zero'`, `[case 0 0 'zero' 'default']`],
+  [`'default'`, `[case 1 0 'zero' 'default']`],
+  [`'default'`, `[case 0 'default']`],
 ]
 
 const funcEnv = makeFuncEnv()
