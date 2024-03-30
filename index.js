@@ -12,13 +12,8 @@ const funcEnv = makeFuncEnv()
 
 if (commandLineArgs.length === 1) {
   const content = fs.readFileSync(commandLineArgs[0], 'utf8')
-  const readForm = parse(content)
-  const cforms = []
-  let form
-  while ((form = readForm())) {
-    cforms.push(compile(form))
-  }
-  for (const cform of cforms) {
+  const { readForms } = parse(content)
+  for (const cform of readForms().map(compile)) {
     console.log(print(cform(new Map(), funcEnv)))
   }
 }

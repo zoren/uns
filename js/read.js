@@ -27,14 +27,20 @@ const makeLexer = (inputString) => {
       case '\n':
       case ' ':
         scan((c) => c === ' ' || c === '\n')
-        return { tokenType: 'whitespace' }
+        return {
+          tokenType: 'whitespace',
+          text: inputString.slice(startIndex, index),
+        }
       case ';':
         scan((c) => c !== '\n')
         index++
-        return { tokenType: 'comment' }
+        return {
+          tokenType: 'comment',
+          text: inputString.slice(startIndex + 1, index),
+        }
       case '[':
       case ']':
-        return { tokenType: firstChar }
+        return { tokenType: firstChar, text: firstChar }
       case `'`: {
         scan((c) => c !== "'" && !isControlChar(c))
         const text = inputString.slice(startIndex + 1, index)
@@ -69,7 +75,6 @@ export const parse = (sArg) => {
 
   const readForm = () => {
     const token = currentToken
-    if (!token) return null
     next()
     const { text, tokenType } = token
     switch (tokenType) {
@@ -88,18 +93,27 @@ export const parse = (sArg) => {
         }
         return symbol(text)
       }
-      case '[':
+      case '[': {
         const list = []
-        while (currentToken && currentToken.tokenType !== ']') {
+        while (true) {
+          assert(currentToken !== null, 'unexpected end of input')
+          if (currentToken.tokenType === ']') {
+            next()
+            return list
+          }
           list.push(readForm())
         }
-        assert(currentToken, 'unexpected end of input')
-        next()
-        return list
-
+      }
       default:
         throw new Error(`unexpected token ${text} of type ${tokenType}`)
     }
   }
-  return readForm
+
+  const readForms = () => {
+    const forms = []
+    while (currentToken !== null) forms.push(readForm())
+    return forms
+  }
+
+  return { readForms }
 }

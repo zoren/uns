@@ -34,13 +34,16 @@ const funcEnv = makeFuncEnv()
 
 let i = 0
 for (const [expected, input] of tests) {
-  const form = parse(input)()
-  const cform = compile(form)
-  const eform = cform(new Map(), funcEnv)
-  const result = print(eform)
-  console.log(`${input} ; => ${result}`)
-  console.assert(result === expected, `expected ${expected}, got ${result}`)
-  i++
+  const { readForms } = parse(input)
+  const forms = readForms()
+  for (const form of forms) {
+    const cform = compile(form)
+    const eform = cform(new Map(), funcEnv)
+    const result = print(eform)
+    console.log(`${input} ; => ${result}`)
+    console.assert(result === expected, `expected ${expected}, got ${result}`)
+    i++
+  }
 }
 
 console.log(`ran ${i} tests`)
