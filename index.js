@@ -1,12 +1,20 @@
 import fs from 'node:fs'
-import { run, runAll } from './js/readEvalPrint.js'
+import { parse, makeEvaluator, print } from './js/readEvalPrint.js'
+import { makeFuncEnv } from './js/funcEnv.js'
 
 const commandLineArgs = process.argv.slice(2)
 
 console.assert(commandLineArgs.length <= 1, 'usage: node . [file]')
 
 if (commandLineArgs.length === 1) {
-  runAll(fs.readFileSync(commandLineArgs[0], 'utf8'))
+  const content = fs.readFileSync(commandLineArgs[0], 'utf8')
+  const readForm = parse(content)
+  const funcEnv = makeFuncEnv()
+  const unsEval = makeEvaluator(funcEnv)
+  let form
+  while ((form = readForm())) {
+    console.log(print(unsEval(form, new Map())))
+  }
   exit(0)
 }
 
@@ -36,6 +44,9 @@ rl.on('history', (history) => {
   fs.writeFileSync('history.json', JSON.stringify(historyObject))
 })
 
+const funcEnv = makeFuncEnv()
+const unsEval = makeEvaluator(funcEnv)
+
 const prompt = () => {
   rl.question(`user> `, (line) => {
     if (line === '') {
@@ -44,7 +55,7 @@ const prompt = () => {
       return
     }
     try {
-      console.log(run(line))
+      console.log(print(unsEval(parse(line)(), new Map())))
     } catch (e) {
       console.log(e.message)
     }

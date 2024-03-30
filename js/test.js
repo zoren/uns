@@ -1,4 +1,5 @@
-import { run } from './readEvalPrint.js'
+import { parse, makeEvaluator, print } from './readEvalPrint.js'
+import { makeFuncEnv } from './funcEnv.js'
 
 const tests = [
   [`3`, `[add 1 2] ; but a comment`],
@@ -26,9 +27,12 @@ const tests = [
   [`'default'`, `[switch 0 'default']`],
 ]
 
+const funcEnv = makeFuncEnv()
+const unsEval = makeEvaluator(funcEnv)
+
 let i = 0
 for (const [expected, input] of tests) {
-  const result = run(input)
+  const result = print(unsEval(parse(input)(), new Map()))
   console.log(`${input} ; => ${result}`)
   console.assert(result === expected, `expected ${expected}, got ${result}`)
   i++
