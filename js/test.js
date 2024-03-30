@@ -1,5 +1,5 @@
 import { parse } from './read.js'
-import { makeEvaluator } from './eval.js'
+import { compile } from './compile.js'
 import { print } from './print.js'
 import { makeFuncEnv } from './funcEnv.js'
 
@@ -30,11 +30,14 @@ const tests = [
 ]
 
 const funcEnv = makeFuncEnv()
-const unsEval = makeEvaluator(funcEnv)
+// const unsEval = makeEvaluator(funcEnv)
 
 let i = 0
 for (const [expected, input] of tests) {
-  const result = print(unsEval(parse(input)(), new Map()))
+  const form = parse(input)()
+  const cform = compile(form)
+  const eform = cform(new Map(), funcEnv)
+  const result = print(eform)
   console.log(`${input} ; => ${result}`)
   console.assert(result === expected, `expected ${expected}, got ${result}`)
   i++

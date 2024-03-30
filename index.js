@@ -1,27 +1,30 @@
 import fs from 'node:fs'
 import { makeFuncEnv } from './js/funcEnv.js'
 import { parse } from './js/read.js'
-import { makeEvaluator } from './js/eval.js'
+import { compile } from './js/compile.js'
 import { print } from './js/print.js'
 
 const commandLineArgs = process.argv.slice(2)
 
 console.assert(commandLineArgs.length <= 1, 'usage: node . [file]')
 
+const funcEnv = makeFuncEnv()
+
 if (commandLineArgs.length === 1) {
   const content = fs.readFileSync(commandLineArgs[0], 'utf8')
   const readForm = parse(content)
-  const funcEnv = makeFuncEnv()
-  const unsEval = makeEvaluator(funcEnv)
+  const cforms = []
   let form
   while ((form = readForm())) {
-    console.log(print(unsEval(form, new Map())))
+    cforms.push(compile(form))
   }
-  exit(0)
+  for (const cform of cforms) {
+    console.log(print(cform(new Map(), funcEnv)))
+  }
 }
 
 import * as readline from 'node:readline'
-import { exit, stdin, nextTick, stdout } from 'node:process'
+import { stdin, nextTick, stdout } from 'node:process'
 
 let history = []
 try {
@@ -46,9 +49,6 @@ rl.on('history', (history) => {
   fs.writeFileSync('history.json', JSON.stringify(historyObject))
 })
 
-const funcEnv = makeFuncEnv()
-const unsEval = makeEvaluator(funcEnv)
-
 const prompt = () => {
   rl.question(`user> `, (line) => {
     if (line === '') {
@@ -57,7 +57,9 @@ const prompt = () => {
       return
     }
     try {
-      console.log(print(unsEval(parse(line)(), new Map())))
+      const form = parse(line)()
+      const cform = compile(form)
+      console.log(print(cform(new Map(), funcEnv)))
     } catch (e) {
       console.log(e.message)
     }
