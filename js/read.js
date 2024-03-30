@@ -20,38 +20,43 @@ export const parse = (sArg) => {
     do {
       currentToken = null
       if (index >= inputString.length) return
+      const startIndex = index
       const firstChar = inputString[index]
+      index++
       const scan = (pred) => {
-        let i = index + 1
+        let i = index
         while (i < inputString.length && pred(inputString[i])) i++
-        return i
+        index = i
       }
       switch (firstChar) {
         case ';':
-          index = scan((c) => c !== '\n') + 1
+          scan((c) => c !== '\n')
+          index++
           continue
         case ' ':
         case '\n':
-          index = scan((c) => c === ' ' || c === '\n')
+          scan((c) => c === ' ' || c === '\n')
           continue
         case '[':
         case ']':
-          index++
           currentToken = { text: firstChar, tokenType: 'bracket' }
           return
         case `'`: {
-          const i = scan((c) => c !== "'" && !isControlChar(c))
-          const text = inputString.slice(index + 1, i)
-          index = i + 1
-          currentToken = { text, tokenType: 'string' }
+          scan((c) => c !== "'" && !isControlChar(c))
+          currentToken = {
+            text: inputString.slice(startIndex + 1, index),
+            tokenType: 'string',
+          }
+          index++
           return
         }
       }
       assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
-      const i = scan(isSymbolChar)
-      const text = inputString.slice(index, i)
-      index = i
-      currentToken = { text, tokenType: 'word' }
+      scan(isSymbolChar)
+      currentToken = {
+        text: inputString.slice(startIndex, index),
+        tokenType: 'word',
+      }
       return
     } while (true)
   }
