@@ -264,6 +264,7 @@ const print = (x) => {
 for (const [name, fn] of [
   ['add', (a, b) => a + b],
   ['sub', (a, b) => a - b],
+  ['mul', (a, b) => a * b],
 
   ['and', (a, b) => a & b],
   ['or', (a, b) => a | b],
@@ -304,25 +305,99 @@ funcEnv.set('nth', (list, n) => {
   return list[n]
 })
 
+funcEnv.set('abort', (msg) => {
+  throw new Error('ABORT: ' + msg)
+})
+
 const memoryPages = 1
 const memory = new Uint8Array(65536 * memoryPages)
 
+funcEnv.set('memory-pages', () => memoryPages)
+
+const assertAddress = (addr, fname) => {
+  assert(
+    typeof addr === 'number',
+    fname + ': address must be a number ' + typeof addr,
+  )
+  assert(addr >= 0 && addr < memory.length, fname + ': address out of bounds')
+}
+
+funcEnv.set('print-object', (addr) => {
+  assertAddress(addr, 'print-object')
+  const view = new DataView(memory.buffer)
+  // return view.getInt32(addr, true)
+  const tag = view.getInt32(addr, true)
+  switch (tag) {
+    case 1:
+      console.log('i32: ' + view.getInt32(addr + 4, true))
+      break
+    case 15: {
+        const bytes = new Uint8Array(memory.buffer, addr + 4, 1)
+        console.log('char: ' + String.fromCharCode(...bytes))
+        break
+      }
+    case 17: {
+      const size = view.getInt32(addr + 4, true)
+      const bytes = new Uint8Array(memory.buffer, addr + 8, size)
+      console.log('string: ' + String.fromCharCode(...bytes))
+      break
+    }
+    default:
+      throw new Error('print-object: unknown tag ' + tag)
+  }
+  return []
+})
+
+funcEnv.set('memory-copy', (dest, src, size) => {
+  assertAddress(dest, 'memory-copy')
+  assertAddress(src, 'memory-copy')
+  assert(typeof size === 'number', 'memory-copy: length must be a number')
+  assert(size >= 0, 'memory-copy: length must be non-negative')
+  assert(dest + size <= memory.length, 'memory-copy: destination out of bounds')
+  assert(src + size <= memory.length, 'memory-copy: source out of bounds')
+  memory.copyWithin(dest, src, src + size)
+  return []
+})
+
+// https://github.com/WebAssembly/bulk-memory-operations/blob/master/proposals/bulk-memory-operations/Overview.md#memoryinit-instruction
+funcEnv.set('memory-init-string', (dest, s) => {
+  assertAddress(dest, 'memory-init-string')
+  assert(typeof s === 'string', 'memory-init-string: s must be a string')
+  const textEncoder = new TextEncoder()
+  const { read, written } = textEncoder.encodeInto(s, memory.subarray(dest))
+  assert(read === s.length, 'memory-init-string: could not encode entire string')
+  return []
+})
+
 funcEnv.set('load8u', (addr) => {
-  assert(typeof addr === 'number', 'load8u: address must be a number')
-  assert(addr >= 0 && addr < memory.length, 'load8u: address out of bounds')
+  assertAddress(addr, 'load8u')
   return memory[addr]
 })
 
+funcEnv.set('load32', (addr) => {
+  assertAddress(addr, 'load32')
+  const view = new DataView(memory.buffer)
+  return view.getInt32(addr, true)
+})
+
 funcEnv.set('store8', (addr, value) => {
-  assert(typeof addr === 'number', 'store8: address must be a number')
-  assert(addr >= 0 && addr < memory.length, 'store8: address out of bounds')
+  assertAddress(addr, 'store8')
   assert(typeof value === 'number', 'store8: value must be a number')
   assert(value >= 0 && value < 256, 'store8: value out of bounds')
   memory[addr] = value
-  return value
+  return []
 })
 
-let activeDataIndex = 0
+funcEnv.set('store32', (addr, value) => {
+  assertAddress(addr, 'store32')
+  assert(typeof value === 'number', 'store32: value must be a number')
+  // memory[addr] = value
+  const view = new DataView(memory.buffer)
+  view.setInt32(addr, value, true)
+  return []
+})
+
+let activeDataIndex = 4
 
 const align4 = (n) => (n + 3) & ~3
 

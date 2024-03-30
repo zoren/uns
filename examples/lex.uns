@@ -61,6 +61,59 @@
 
         [abort 'unexpected character' c]]]]]
 
+[func is-align4 [x] [eq [and x 3] 0]]
+
+;; init memory top
+[store32 0 4]
+
+[func alloc [size]
+  [assert [ge size 0] 'alloc negative size']
+  [assert [le size 65536] 'alloc too large, more than 64k']
+  [assert [is-align4 size] 'alloc not aligned']
+  [let
+    [current-top [load32 0]
+     - [assert current-top 'memory not initialized - no top']
+     - [assert [is-align4 current-top] 'current top not aligned']
+     mem-bytes [mul 65536 [memory-pages]]
+     - [assert [le current-top mem-bytes] 'out of memory - top outside memory before alloc']
+     new-top [add current-top size]]
+    [assert [le new-top mem-bytes] 'out of memory - top outside memory after alloc']
+    [store32 0 new-top]
+    current-top]]
+
+; dynamic object system
+; an object has a tag and a payload (size depends on tag)
+; tags
+; maybe make them odd so a tag can also be a pointer
+; 1 - i32
+; 15 - character
+; 17 - string i32 length + utf8 bytes (u8)
+; 19 - array i32 length + i32 elements
+; custom tags are pointers to descriptors
+
+[func alloc-i32 [value]
+  [let [p [alloc 8]]
+    [store32 p 1]
+    [store32 [add p 4] value]
+    p]]
+
+[func alloc-char [value]
+  [let [p [alloc 8]]
+    [store32 p 15]
+    [store32 [add p 4] value]
+    p]]
+
+[func alloc-string-from-bytes [pointer size]
+  [let [s [alloc [add size 8]]]
+    [store32 s 17]
+    [store32 [add s 4] size]
+    [memory-copy [add s 8] pointer size]
+    s]]
+
+[print-object [alloc-i32 42]]
+
+[print-object [alloc-string-from-bytes 0 0]]
+
 [func get-tokens [start end]
   [loop [i start]
     [if [lt i end]
@@ -69,8 +122,21 @@
         [recur [nth token 2]]]
       0]]]
 
-[let
-  [s [active 'hej [du] ; ']
-    start [nth s 0]
-    len [nth s 1]]
-  [get-tokens start [add start len]]]
+[func parse [s]
+  [let
+    [start [nth s 0]
+     len [nth s 1]]
+    [get-tokens start [add start len]]]]
+
+;  [parse [active 'hej [du] ; ']]
+
+;  [parse [active '[add 2 4]']]
+
+[func print-ascii []
+  [loop [i 32]
+    [print-object [alloc-char i]]
+    [if [lt i 126]
+      [recur [inc i]]
+      []]]]
+
+[print-ascii]
