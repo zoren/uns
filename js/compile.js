@@ -12,23 +12,25 @@ class Recur {
 
 export const compile = (ast) => {
   if (typeof ast === 'number' || typeof ast === 'string') return () => ast
-  if (isSymbol(ast)) {
-    const { name } = ast
-    return (env) => {
-      if (!env.has(name)) {
-        console.log('undefined symbol: ' + name)
-        console.log(env)
+  {
+    const symbolName = isSymbol(ast)
+    if (symbolName) {
+      return (env) => {
+        if (!env.has(symbolName)) {
+          console.log('undefined symbol: ' + symbolName)
+          console.log(env)
+        }
+        assert(env.has(symbolName), 'undefined symbol: ' + symbolName)
+        return env.get(symbolName)
       }
-      assert(env.has(name), 'undefined symbol: ' + name)
-      return env.get(name)
     }
   }
   assert(Array.isArray(ast), 'ast must be an array at this point')
   if (ast.length === 0) return () => ast
   const [first, ...rest] = ast
-  assert(isSymbol(first), 'first element must be a symbol: ' + first)
-  const { name } = first
-  switch (name) {
+  const firstName = isSymbol(first)
+  assert(firstName, 'first element must be a symbol: ' + first)
+  switch (firstName) {
     case 'if': {
       assert(rest.length === 3, 'if must have 3 arguments')
       const ccond = compile(rest[0])
@@ -45,12 +47,14 @@ export const compile = (ast) => {
     }
     case 'func': {
       assert(rest.length >= 3, 'func must have at least 3 arguments')
-      assert(isSymbol(rest[0]), 'first argument must be a symbol')
-      const fname = rest[0].name
+
+      const fname = isSymbol(rest[0])
+      assert(fname, 'first argument must be a symbol')
       assert(Array.isArray(rest[1]), 'second argument must be a list')
       const paramNames = rest[1].map((x) => {
-        assert(isSymbol(x), 'parameters must be symbols')
-        return x.name
+        const name = isSymbol(x)
+        assert(name, 'parameters must be symbols')
+        return name
       })
       const cbodies = rest.slice(2, -1).map(compile)
       const clastBody = compile(rest.at(-1))
@@ -72,7 +76,7 @@ export const compile = (ast) => {
     }
     case 'let':
     case 'loop': {
-      assert(rest.length >= 2, name + ' must have at least 2 arguments')
+      assert(rest.length >= 2, firstName + ' must have at least 2 arguments')
       const [bindings, ...bodies] = rest
       assert(Array.isArray(bindings), 'second argument must be a list')
       assert(bindings.length % 2 === 0, 'bindings must be of even length')
@@ -81,8 +85,8 @@ export const compile = (ast) => {
       const cBindExprs = []
       for (let i = 0; i < bindings.length; i += 2) {
         const key = bindings[i]
-        assert(isSymbol(key), 'key must be a symbol')
-        const { name } = key
+        const name = isSymbol(key)
+        assert(name, 'key must be a symbol')
         bindingNames.push(name)
         cBindExprs.push(compile(bindings[i + 1]))
       }
@@ -90,7 +94,7 @@ export const compile = (ast) => {
       const butLastBodies = bodies.slice(0, -1).map(compile)
       const lastBody = compile(bodies.at(-1))
       const bindingCount = bindingNames.length
-      if (name === 'let') {
+      if (firstName === 'let') {
         return (env, fenv) => {
           const newEnv = new Map(env)
           for (let i = 0; i < bindingCount; i++) {
@@ -175,8 +179,8 @@ export const compile = (ast) => {
 
   const cargs = rest.map(compile)
   return (env, funcEnv) => {
-    const fn = funcEnv.get(name)
-    assert(fn, 'undefined function: ' + name)
+    const fn = funcEnv.get(firstName)
+    assert(fn, 'undefined function: ' + firstName)
     return fn(...cargs.map((c) => c(env, funcEnv)))
   }
 }
