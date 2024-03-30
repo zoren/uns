@@ -118,6 +118,36 @@
     [memory-copy [add s 8] pointer size]
     s]]
 
+[func is-string [p] [eq [load32 p] 17]]
+
+[func string-concat [o1 o2]
+  [assert [is-string o1] 'string-concat o1 not a string']
+  [assert [is-string o2] 'string-concat o2 not a string']
+  [let
+    [len1 [load32 [add o1 4]]
+     len2 [load32 [add o2 4]]
+     len [add len1 len2]
+     s [alloc [align4 [add len 8]]]]
+    [store32 s 17]
+    [store32 [add s 4] len]
+    [memory-copy [add s 8] [add o1 8] len1]
+    [memory-copy [add s [add 8 len1]] [add o2 8] len2]
+    s]
+]
+
+[func int32-to-hex-string [value]
+  [assert [not [is-negative value]] 'int32-to-hex-string negative value']
+  [assert [le value 0xff] 'int32-to-hex-string value too large']
+  [let [string-size 4]
+    [let [s [alloc [add string-size 8]]]
+      [store32 s 17]
+      [store32 [add s 4] string-size]
+      [store8 [add s 8] 0x30] ; '0'
+      [store8 [add s 9] 0x78] ; 'x'
+      [store8 [add s 10] [add 0x30 [shift-right value 4]]]
+      [store8 [add s 11] [add 0x30 [and value 0xf]]]
+      s]]]
+
 [print-object [alloc-i32 42]]
 
 [print-object [alloc-string-from-bytes 0 0]]
@@ -148,3 +178,5 @@
       []]]]
 
 [print-ascii]
+
+[print-object [string-concat [int32-to-hex-string 0x42] [int32-to-hex-string 0x43]]]
