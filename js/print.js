@@ -1,3 +1,5 @@
+import { isSymbol } from './lib.js'
+
 export const print = (x) => {
   switch (typeof x) {
     case 'string':

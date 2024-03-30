@@ -11,52 +11,56 @@ const isControlChar = (c) => {
 
 const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
-export const parse = (sArg) => {
-  const inputString = sArg
+const makeLexer = (inputString) => {
   let index = 0
+  return () => {
+    if (index >= inputString.length) return null
+    const startIndex = index
+    const firstChar = inputString[startIndex]
+    index++
+    const scan = (pred) => {
+      let i = index
+      while (i < inputString.length && pred(inputString[i])) i++
+      index = i
+    }
+    switch (firstChar) {
+      case '\n':
+      case ' ':
+        scan((c) => c === ' ' || c === '\n')
+        return { tokenType: 'whitespace' }
+      case ';':
+        scan((c) => c !== '\n')
+        index++
+        return { tokenType: 'comment' }
+      case '[':
+      case ']':
+        return { tokenType: firstChar }
+      case `'`: {
+        scan((c) => c !== "'" && !isControlChar(c))
+        const text = inputString.slice(startIndex + 1, index)
+        index++
+        return { tokenType: 'string', text }
+      }
+    }
+    assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
+    scan(isSymbolChar)
+    return {
+      tokenType: 'word',
+      text: inputString.slice(startIndex, index),
+    }
+  }
+}
+
+export const parse = (sArg) => {
+  const lexer = makeLexer(sArg)
   let currentToken = null
 
   const next = () => {
     do {
-      currentToken = null
-      if (index >= inputString.length) return
-      const startIndex = index
-      const firstChar = inputString[index]
-      index++
-      const scan = (pred) => {
-        let i = index
-        while (i < inputString.length && pred(inputString[i])) i++
-        index = i
-      }
-      switch (firstChar) {
-        case ';':
-          scan((c) => c !== '\n')
-          index++
-          continue
-        case ' ':
-        case '\n':
-          scan((c) => c === ' ' || c === '\n')
-          continue
-        case '[':
-        case ']':
-          currentToken = { text: firstChar, tokenType: 'bracket' }
-          return
-        case `'`: {
-          scan((c) => c !== "'" && !isControlChar(c))
-          currentToken = {
-            text: inputString.slice(startIndex + 1, index),
-            tokenType: 'string',
-          }
-          index++
-          return
-        }
-      }
-      assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
-      scan(isSymbolChar)
-      currentToken = {
-        text: inputString.slice(startIndex, index),
-        tokenType: 'word',
-      }
+      currentToken = lexer()
+      if (currentToken === null) return
+      const { tokenType } = currentToken
+      if (tokenType === 'whitespace' || tokenType === 'comment') continue
       return
     } while (true)
   }
@@ -84,10 +88,9 @@ export const parse = (sArg) => {
         }
         return symbol(text)
       }
-      case 'bracket':
-        assert(text === '[', 'unexpected bracket')
+      case '[':
         const list = []
-        while (currentToken && currentToken.text !== ']') {
+        while (currentToken && currentToken.tokenType !== ']') {
           list.push(readForm())
         }
         assert(currentToken, 'unexpected end of input')
