@@ -2,59 +2,56 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error('READ ' + msg)
 }
 
-const firstToken = (s) => {
-  if (s.length === 0) return null
-  const c = s[0]
-  const scan = (pred) => {
-    let i = 1
-    while (i < s.length && pred(s[i])) i++
-    return i
-  }
-  switch (c) {
-    case ';': {
-      const i = scan((c) => c !== '\n')
-      return [{ text: s.slice(0, i), tokenType: 'comment' }, i + 1]
-    }
-    case ' ':
-    case '\n': {
-      const i = scan((c) => c === ' ' || c === '\n')
-      return [{ text: s.slice(0, i), tokenType: 'whitespace' }, i]
-    }
-    case '[':
-    case ']':
-      return [{ text: c, tokenType: 'bracket' }, 1]
-    case `'`: {
-      const isControlChar = (c) => {
-        const code = c.charCodeAt(0)
-        return code < 32 || code === 127
-      }
-      const i = scan((c) => c !== "'" && !isControlChar(c))
-      return [{ text: s.slice(1, i), tokenType: 'string' }, i + 1]
-    }
-    default:
-      const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
-      assert(isSymbolChar(c), `illegal character ${c}`)
-      const i = scan(isSymbolChar)
-      return [{ text: s.slice(0, i), tokenType: 'word' }, i]
-  }
-}
-
 import { symbol } from './lib.js'
 
-export const parse = (s) => {
+const isControlChar = (c) => {
+  const code = c.charCodeAt(0)
+  return code < 32 || code === 127
+}
+
+const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
+
+export const parse = (sArg) => {
+  const inputString = sArg
+  let index = 0
   let currentToken = null
 
   const next = () => {
     do {
-      if (s.length === 0) {
-        currentToken = null
-        return
+      currentToken = null
+      if (index >= inputString.length) return
+      const firstChar = inputString[index]
+      const scan = (pred) => {
+        let i = index + 1
+        while (i < inputString.length && pred(inputString[i])) i++
+        return i
       }
-      let [ntoken, i] = firstToken(s)
-      s = s.slice(i)
-      const { tokenType } = ntoken
-      if (tokenType === 'whitespace' || tokenType === 'comment') continue
-      currentToken = ntoken
+      switch (firstChar) {
+        case ';':
+          index = scan((c) => c !== '\n') + 1
+          continue
+        case ' ':
+        case '\n':
+          index = scan((c) => c === ' ' || c === '\n')
+          continue
+        case '[':
+        case ']':
+          index++
+          currentToken = { text: firstChar, tokenType: 'bracket' }
+          return
+        case `'`: {
+          const i = scan((c) => c !== "'" && !isControlChar(c))
+          const text = inputString.slice(index + 1, i)
+          index = i + 1
+          currentToken = { text, tokenType: 'string' }
+          return
+        }
+      }
+      assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
+      const i = scan(isSymbolChar)
+      const text = inputString.slice(index, i)
+      index = i
+      currentToken = { text, tokenType: 'word' }
       return
     } while (true)
   }
@@ -72,7 +69,10 @@ export const parse = (s) => {
       case 'word': {
         try {
           const bi = BigInt(text)
-          assert(-0x80000000n <= bi && bi <= 0x7fffffffn, `number out of range`)
+          assert(
+            -0x80000000n <= bi && bi <= 0x7fffffffn,
+            `number out of i32 range`,
+          )
           return Number(bi)
         } catch (e) {
           if (!(e instanceof SyntaxError)) throw e
