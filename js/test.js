@@ -1,4 +1,6 @@
-import { parse, makeEvaluator, print } from './readEvalPrint.js'
+import { parse } from './read.js'
+import { makeEvaluator } from './eval.js'
+import { print } from './print.js'
 import { makeFuncEnv } from './funcEnv.js'
 
 const tests = [

@@ -1,6 +1,8 @@
 import fs from 'node:fs'
-import { parse, makeEvaluator, print } from './js/readEvalPrint.js'
 import { makeFuncEnv } from './js/funcEnv.js'
+import { parse } from './js/read.js'
+import { makeEvaluator } from './js/eval.js'
+import { print } from './js/print.js'
 
 const commandLineArgs = process.argv.slice(2)
 
