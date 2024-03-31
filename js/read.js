@@ -30,22 +30,24 @@ const makeLexer = (inputString) => {
         return {
           tokenType: 'whitespace',
           text: inputString.slice(startIndex, index),
+          startIndex,
         }
       case ';':
         scan((c) => c !== '\n')
         index++
         return {
           tokenType: 'comment',
-          text: inputString.slice(startIndex + 1, index),
+          text: inputString.slice(startIndex + 1, index - 1),
+          startIndex,
         }
       case '[':
       case ']':
-        return { tokenType: firstChar, text: firstChar }
+        return { tokenType: firstChar, startIndex }
       case `'`: {
         scan((c) => c !== "'" && !isControlChar(c))
         const text = inputString.slice(startIndex + 1, index)
         index++
-        return { tokenType: 'string', text }
+        return { tokenType: 'string', text, startIndex }
       }
     }
     assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
@@ -53,6 +55,7 @@ const makeLexer = (inputString) => {
     return {
       tokenType: 'word',
       text: inputString.slice(startIndex, index),
+      startIndex,
     }
   }
 }
@@ -68,16 +71,31 @@ const textToNumberOrSymbol = (text) => {
   return symbol(text)
 }
 
+const setOrGetMeta = (form) => {
+  if (form.meta === undefined) form.meta = {}
+  return form.meta
+}
+
 export const parse = (sArg) => {
   const lexer = makeLexer(sArg)
   let currentToken = null
+
+  let prevForm = null
 
   const next = () => {
     do {
       currentToken = lexer()
       if (currentToken === null) return
       const { tokenType } = currentToken
-      if (tokenType === 'whitespace' || tokenType === 'comment') continue
+      if (tokenType === 'comment') {
+        if (prevForm !== null) {
+          setOrGetMeta(prevForm).comments = []
+          const { comments } = prevForm.meta
+          comments.push(currentToken)
+        }
+        continue
+      }
+      if (tokenType === 'whitespace') continue
       return
     } while (true)
   }
@@ -90,20 +108,25 @@ export const parse = (sArg) => {
     const { text, tokenType } = token
     switch (tokenType) {
       case 'string':
+        prevForm = null
         return text
       case 'word':
+        prevForm = null
         return textToNumberOrSymbol(text)
       case '[': {
         const list = []
+        setOrGetMeta(list).startBracket = token
         while (true) {
-          if (currentToken === null) return list
+          if (currentToken === null) break
           const { tokenType } = currentToken
           if (tokenType === ']') {
+            prevForm = list
             next()
-            return list
+            break
           }
           list.push(readForm())
         }
+        return list
       }
       default:
         throw new Error(`unexpected token ${text} of type ${tokenType}`)
