@@ -17,13 +17,3 @@
 [let [x 2] [let [y 3] [add x y]]] ; => 5
 
 [loop [r 0 i 10] [if i [cont [add r i] [sub i 1]] r]] ; => 55
-
-[func switcher [x] [case x 0 'zero' 1 'one' 'default']]
-[list [switcher 0] [switcher 1] [switcher 2]] ; => ['zero' 'one' 'default']
-
-[case 0
-  0 'zero'
-  'default'] ; => 'zero'
-
-[case 1 0 'zero' 'default'] ; => 'default'
-[case 0 'default'] ; => 'default'

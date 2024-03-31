@@ -12,6 +12,39 @@ const assert = (cond, msg) => {
   if (!cond) throw new RuntimeErrorBuiltIn(msg)
 }
 
+export const funcCtx = new Map()
+{
+  const params = [
+    { pname: 'a', type: 'i32' },
+    { pname: 'b', type: 'i32' },
+  ]
+  const results = [{ type: 'i32' }]
+  for (const n of [
+    'add',
+    'sub',
+    'mul',
+    'bit-and',
+    'bit-or',
+    'xor',
+    'shift-right',
+
+    'eq',
+    'neq',
+    'lt',
+    'le',
+    'gt',
+    'ge',
+  ]) {
+    funcCtx.set(n, { params, results })
+  }
+}
+
+funcCtx.set('abort', {params: [{pname: 'msg', type: 'string'}], results: []})
+
+export const makeFuncCtx = () => {
+  return new Map(funcCtx)
+}
+
 export const makeFuncEnv = () => {
   const funcEnv = new Map()
 

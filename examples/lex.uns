@@ -9,14 +9,14 @@
 [func is-negative [x] [lt x 0]]
 
 [func is-whitespace [c]
-    [case c
-      [0x09 0x0a 0x0d 0x20] ; '\t' '\n' '\r' ' '
-      1
-      0]]
+  [bit-or [eq c 0x20] [eq c 0x0a]]]
 
-[func is-between [lower c upper] [bit-and [le lower c] [le c upper]]]
+[func is-between [lower c upper]
+  [bit-and [le lower c] [le c upper]]]
 
 [func is-digit [c] [is-between 0x30 c 0x39]]
+
+[func is-align4 [x] [eq [bit-and x 3] 0]]
 
 [func is-ident-char [c]
   [bit-or
@@ -42,12 +42,6 @@
           [cont [inc j]]
           [list 2 [inc start] [dec j] [inc j]]]]
 
-;      [0x30 0x31 0x32 0x33 0x34 0x35 0x36 0x37 0x38 0x39] ; '0' '1' '2' '3' '4' '5' '6' '7' '8' '9'
-;      [loop [j [inc start]]
-;        [if [if [lt j end] [is-digit [load8u j]] 0]
-;          [cont [inc j]]
-;          [list 3 start j j]]]
-
       0x3b ; ';'
       [loop [j [inc start]]
         [if [if [lt j end] [neq [load8u j] 0x0a] 0]
@@ -64,8 +58,6 @@
             [list 6 start j j]]]
 
         [abort 'unexpected character' c]]]]]
-
-[func is-align4 [x] [eq [bit-and x 3] 0]]
 
 ;; init memory top
 [store32 0 4]
@@ -186,6 +178,96 @@
       [cont [inc i]]
       []]]]
 
-[print-ascii]
+; [print-object [string-concat [int32-to-hex-string 0x42] [int32-to-hex-string 0x43]]]
 
-[print-object [string-concat [int32-to-hex-string 0x42] [int32-to-hex-string 0x43]]]
+; dynamic lists are growable arrays of pointers
+; the first 4 bytes is the tag 19
+; the next 4 bytes is the size
+; the next 4 bytes is the capacity
+; the elements are pointed to by the next 4*size bytes
+
+[func alloc-list [initial-capacity]
+  [assert [ge initial-capacity 1] 'alloc-list initial-capacity too small']
+  [let [p [alloc 16]]
+    [store32 p 19]
+    [store32 [add p 4] 0]
+    [store32 [add p 8] initial-capacity]
+    [store32 [add p 12] [alloc [mul 4 initial-capacity]]]
+    p]]
+
+[func list-push [list element]
+  [assert [eq [load32 list] 19] 'list-push: list not a list']
+  [let
+    [size [load32 [add list 4]]
+     capacity [load32 [add list 8]]
+     elements [load32 [add list 12]]]
+    [if [lt size capacity]
+      [let []
+        [store32 [add list 4] [inc size]]
+        [store32 [add elements [mul 4 size]] element]]
+
+      ; grow
+      [let
+        [new-capacity [mul capacity 2]
+         new-elements [alloc [mul 4 new-capacity]]]
+        [memory-copy new-elements elements [mul 4 size]]
+        [store32 list 19]
+        [store32 [add list 4] [inc size]]
+        [store32 [add list 8] new-capacity]
+        [store32 [add list 12] new-elements]
+        [store32 [add new-elements [mul 4 size]] element]
+   ;     [free elements]
+        ]
+      ]]]
+
+[func list-pop [list]
+  [assert [eq [load32 list] 19] 'list-pop: list not a list']
+  [let
+    [size [load32 [add list 4]]
+     - [assert [gt size 0] 'list-pop empty list']
+     capacity [load32 [add list 8]]
+     elements [load32 [add list 12]]]
+    [let
+      [element [load32 [add elements [mul 4 size]]]]
+      [store32 [add list 4] [dec size]]
+      element]]]
+
+[func list-get [list index]
+  [assert [eq [load32 list] 19] 'list-get list not a list']
+  [assert [not [is-negative index]] 'list-get negative index']
+  [let
+    [size [load32 [add list 4]]
+     - [assert [lt index size] 'list-get index out of bounds']
+     elements [load32 [add list 12]]]
+    [load32 [add elements [mul 4 index]]]]]
+
+[func list-size [list]
+  [assert [eq [load32 list] 19] 'list-size list not a list']
+  [load32 [add list 4]]]
+
+[func list-tester []
+  [let
+    [l [alloc-list 8]]
+    [list-push l [int32-to-hex-string 0x42]]
+    [print-object [alloc-i32 [list-size l]]]
+    [list-push l [int32-to-hex-string 0x43]]
+    [print-object [alloc-i32 [list-size l]]]
+    [list-push l [int32-to-hex-string 0x44]]
+    [print-object [alloc-i32 [list-size l]]]
+   
+    [print-object [list-get l 1]]
+    
+    [list-pop l]
+    [print-object [alloc-i32 [list-size l]]]
+    [list-pop l]
+    [print-object [alloc-i32 [list-size l]]]
+    [list-pop l]
+    [print-object [alloc-i32 [list-size l]]]
+
+   ; [print-object [list-pop l]]
+  ;  [print-object [list-pop l]]
+  ;  [print-object [list-pop l]]
+    ]
+]
+
+[list-tester]

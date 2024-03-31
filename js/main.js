@@ -1,11 +1,12 @@
 import { parse } from './read.js'
-import { compile, CompileError } from './compile.js'
+import { makeCompiler, CompileError } from './compile.js'
 import { RuntimeError } from './lib.js'
 import { print } from './print.js'
-import { makeFuncEnv } from './funcEnv.js'
+import { makeFuncEnv, funcCtx } from './funcEnv.js'
 
 export const makeReadEvalPrint = () => {
   const funcEnv = makeFuncEnv()
+  const compile = makeCompiler(funcCtx)
   return (content, { log, error }) => {
     try {
       const { readForms } = parse(content)

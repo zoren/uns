@@ -1,7 +1,7 @@
 import { parse } from './read.js'
-import { compile } from './compile.js'
+import { makeCompiler } from './compile.js'
 import { print } from './print.js'
-import { makeFuncEnv } from './funcEnv.js'
+import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
 
 const tests = [
   ['255', `0xff`],
@@ -15,6 +15,8 @@ const tests = [
 ]
 
 const funcEnv = makeFuncEnv()
+const funcCtx = makeFuncCtx()
+const compile = makeCompiler(funcCtx)
 
 let i = 0
 for (const [expected, input] of tests) {
