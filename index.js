@@ -1,22 +1,20 @@
 import fs from 'node:fs'
-import { makeFuncEnv } from './js/funcEnv.js'
-import { parse } from './js/read.js'
-import { compile, CompileError } from './js/compile.js'
-import { RuntimeError } from './js/lib.js'
-import { print } from './js/print.js'
+import { makeReadEvalPrint } from './js/main.js'
 
 const commandLineArgs = process.argv.slice(2)
 
 console.assert(commandLineArgs.length <= 1, 'usage: node . [file]')
 
-const funcEnv = makeFuncEnv()
+const readEvalPrint = makeReadEvalPrint()
 
 if (commandLineArgs.length === 1) {
   const content = fs.readFileSync(commandLineArgs[0], 'utf8')
-  const { readForms } = parse(content)
-  for (const cform of readForms().map(compile)) {
-    cform(new Map(), funcEnv)
-  }
+  readEvalPrint(content, {
+    log: () => {},
+    error: (err) => {
+      throw err
+    },
+  })
 }
 
 import * as readline from 'node:readline'
@@ -52,20 +50,7 @@ const prompt = () => {
       rl.close()
       return
     }
-    try {
-      const { readForms } = parse(line)
-      for (const form of readForms()) {
-        const cform = compile(form)
-        console.log(print(cform(new Map(), funcEnv)))
-      }
-    } catch (e) {
-      if (e instanceof CompileError || e instanceof RuntimeError) {
-        console.log(e.message)
-      } else {
-        console.error('INTERNAL ERROR ' + e.message)
-        console.error(e)
-      }
-    }
+    readEvalPrint(line, console)
     nextTick(prompt)
   })
 }
