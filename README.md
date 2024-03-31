@@ -18,7 +18,7 @@ if you're lucky and have a fully functional keyboard you can use uppercase chara
 
 strings do not provide the otherwise common escape characters eventhough backslash `\` is available without the shift key
 
-some characters seem to unfairly be unshifted, like backtick `\`` and backslash `\\` so they are not used in uns
+some characters seem to unfairly be unshifted, like backtick and backslash, and are illegal in uns
 
 commas are also not allowed, i've written enough commas for a lifetime, my comma key is fine though
 
