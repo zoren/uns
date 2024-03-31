@@ -14,7 +14,7 @@ if (commandLineArgs.length === 1) {
   const content = fs.readFileSync(commandLineArgs[0], 'utf8')
   const { readForms } = parse(content)
   for (const cform of readForms().map(compile)) {
-    console.log(print(cform(new Map(), funcEnv)))
+    cform(new Map(), funcEnv)
   }
 }
 

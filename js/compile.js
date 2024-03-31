@@ -22,7 +22,7 @@ const pairwise = function* (arr) {
   }
 }
 
-class Recur {
+class ContinueWrapper {
   constructor(args) {
     this.args = args
   }
@@ -34,10 +34,6 @@ export const compile = (ast) => {
     const symbolName = isSymbol(ast)
     if (symbolName) {
       return (env) => {
-        if (!env.has(symbolName)) {
-          console.log('undefined symbol: ' + symbolName)
-          console.log(env)
-        }
         rtAssert(env.has(symbolName), 'undefined symbol: ' + symbolName)
         return env.get(symbolName)
       }
@@ -69,7 +65,6 @@ export const compile = (ast) => {
       const cbodies = rest.slice(2, -1).map(compile)
       const clastBody = compile(rest.at(-1))
       const arity = paramNames.length
-
       return (env, fenv) => {
         fenv.set(fname, (...args) => {
           rtAssert(
@@ -97,7 +92,7 @@ export const compile = (ast) => {
       ])
       const butLastBodies = bodies.slice(0, -1).map(compile)
       const lastBody = compile(bodies.at(-1))
-      if (firstName === 'let') {
+      if (firstName === 'let')
         return (env, fenv) => {
           const newEnv = new Map(env)
           for (const [name, cBindExpr] of cbindings) {
@@ -106,10 +101,10 @@ export const compile = (ast) => {
           for (const body of butLastBodies) body(newEnv, fenv)
           return lastBody(newEnv, fenv)
         }
-      }
+
       const bindingNames = cbindings.map(([name]) => name)
       const bindingCount = cbindings.length
-      // todo check statically args to cont
+      // todo check statically args arity to cont
       return (env, fenv) => {
         const newEnv = new Map(env)
         for (const [name, cBindExpr] of cbindings) {
@@ -118,7 +113,7 @@ export const compile = (ast) => {
         while (true) {
           for (const body of butLastBodies) body(newEnv, fenv)
           const result = lastBody(newEnv, fenv)
-          if (!(result instanceof Recur)) return result
+          if (!(result instanceof ContinueWrapper)) return result
           const { args } = result
           rtAssert(
             bindingCount === args.length,
@@ -131,7 +126,7 @@ export const compile = (ast) => {
     }
     case 'cont': {
       const cargs = rest.map(compile)
-      return (env, fenv) => new Recur(cargs.map((c) => c(env, fenv)))
+      return (env, fenv) => new ContinueWrapper(cargs.map((c) => c(env, fenv)))
     }
     case 'case': {
       ctAssert(rest.length >= 2, 'case must have at least 2 arguments')

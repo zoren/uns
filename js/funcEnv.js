@@ -1,7 +1,7 @@
 import { isInt32 } from './lib.js'
 
 const assert = (cond, msg) => {
-  if (!cond) throw new Error('built-in func assert' + msg)
+  if (!cond) throw new Error('built-in func assert ' + msg)
 }
 
 export const makeFuncEnv = () => {
