@@ -20,3 +20,9 @@ export const symbol = (name) => {
 }
 
 export const isInt32 = (x) => typeof x === 'number' && !isNaN(x) && (x | 0) === x
+
+export class RuntimeError extends Error {
+  constructor(msg) {
+    super('RUNTIME: ' + msg)
+  }
+}

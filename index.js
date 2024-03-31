@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import { makeFuncEnv } from './js/funcEnv.js'
 import { parse } from './js/read.js'
-import { compile, CompileError, RuntimeError } from './js/compile.js'
+import { compile, CompileError } from './js/compile.js'
+import { RuntimeError } from './js/lib.js'
 import { print } from './js/print.js'
 
 const commandLineArgs = process.argv.slice(2)

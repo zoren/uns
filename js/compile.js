@@ -1,4 +1,4 @@
-import { isInt32 } from './lib.js'
+import { isInt32, RuntimeError } from './lib.js'
 
 export class CompileError extends Error {
   constructor(msg) {
@@ -8,12 +8,6 @@ export class CompileError extends Error {
 
 const ctAssert = (cond, msg) => {
   if (!cond) throw new CompileError(msg)
-}
-
-export class RuntimeError extends Error {
-  constructor(msg) {
-    super('RUNTIME: ' + msg)
-  }
 }
 
 const rtAssert = (cond, msg) => {

@@ -1,8 +1,15 @@
 import { isInt32 } from './lib.js'
 import { print } from './print.js'
+import { RuntimeError } from './lib.js'
+
+class RuntimeErrorBuiltIn extends RuntimeError {
+  constructor(msg) {
+    super('BUILT-In: ' + msg)
+  }
+}
 
 const assert = (cond, msg) => {
-  if (!cond) throw new Error('built-in func assert ' + msg)
+  if (!cond) throw new RuntimeErrorBuiltIn(msg)
 }
 
 export const makeFuncEnv = () => {
@@ -18,7 +25,9 @@ export const makeFuncEnv = () => {
     ['xor', (a, b) => a ^ b],
     ['shift-right', (a, b) => a >> b],
   ]) {
-    funcEnv.set(name, (a, b) => {
+    funcEnv.set(name, (...args) => {
+      assert(args.length === 2, name + ': expected 2 arguments')
+      const [a, b] = args
       assert(isInt32(a), 'first argument must be a number')
       assert(isInt32(b), 'second argument must be a number')
       return fn(a, b) | 0
@@ -33,7 +42,9 @@ export const makeFuncEnv = () => {
     ['gt', (a, b) => a > b],
     ['ge', (a, b) => a >= b],
   ]) {
-    funcEnv.set(name, (a, b) => {
+    funcEnv.set(name, (...args) => {
+      assert(args.length === 2, name + ': expected 2 arguments')
+      const [a, b] = args
       assert(isInt32(a), 'first argument must be a number')
       assert(isInt32(b), 'second argument must be a number')
       return Number(fn(a, b))
@@ -47,7 +58,9 @@ export const makeFuncEnv = () => {
     return []
   })
 
-  funcEnv.set('nth', (list, n) => {
+  funcEnv.set('nth', (...args) => {
+    assert(args.length === 2, 'expected 2 arguments')
+    const [list, n] = args
     assert(Array.isArray(list), 'first argument must be a list')
     assert(isInt32(n), 'second argument must be a number')
     assert(n >= 0 && n < list.length, 'index out of bounds')
@@ -68,7 +81,9 @@ export const makeFuncEnv = () => {
     assert(addr >= 0 && addr < memory.length, fname + ': address out of bounds')
   }
 
-  funcEnv.set('print-object', (addr) => {
+  funcEnv.set('print-object', (...args) => {
+    assert(args.length === 1, 'print-object: expected 1 argument')
+    const [addr] = args
     assertAddress(addr, 'print-object')
     const view = new DataView(memory.buffer)
     // return view.getInt32(addr, true)
@@ -94,7 +109,9 @@ export const makeFuncEnv = () => {
     return []
   })
 
-  funcEnv.set('memory-copy', (dest, src, size) => {
+  funcEnv.set('memory-copy', (...args) => {
+    assert(args.length === 3, 'memory-copy: expected 3 arguments')
+    const [dest, src, size] = args
     assertAddress(dest, 'memory-copy')
     assertAddress(src, 'memory-copy')
     assert(isInt32(size), 'memory-copy: length must be a number')
@@ -109,7 +126,9 @@ export const makeFuncEnv = () => {
   })
 
   // https://github.com/WebAssembly/bulk-memory-operations/blob/master/proposals/bulk-memory-operations/Overview.md#memoryinit-instruction
-  funcEnv.set('memory-init-string', (dest, s) => {
+  funcEnv.set('memory-init-string', (...args) => {
+    assert(args.length === 2, 'memory-init-string: expected 2 arguments')
+    const [dest, s] = args
     assertAddress(dest, 'memory-init-string')
     assert(typeof s === 'string', 'memory-init-string: s must be a string')
     const textEncoder = new TextEncoder()
@@ -121,18 +140,24 @@ export const makeFuncEnv = () => {
     return []
   })
 
-  funcEnv.set('load8u', (addr) => {
+  funcEnv.set('load8u', (...args) => {
+    assert(args.length === 1, 'load8u: expected 1 argument')
+    const [addr] = args
     assertAddress(addr, 'load8u')
     return memory[addr]
   })
 
-  funcEnv.set('load32', (addr) => {
+  funcEnv.set('load32', (...args) => {
+    assert(args.length === 1, 'load32: expected 1 argument')
+    const [addr] = args
     assertAddress(addr, 'load32')
     const view = new DataView(memory.buffer)
     return view.getInt32(addr, true)
   })
 
-  funcEnv.set('store8', (addr, value) => {
+  funcEnv.set('store8', (...args) => {
+    assert(args.length === 2, 'store8: expected 2 arguments')
+    const [addr, value] = args
     assertAddress(addr, 'store8')
     assert(isInt32(value), 'store8: value must be a number')
     assert(value >= 0 && value < 256, 'store8: value out of bounds')
@@ -140,7 +165,9 @@ export const makeFuncEnv = () => {
     return []
   })
 
-  funcEnv.set('store32', (addr, value) => {
+  funcEnv.set('store32', (...args) => {
+    assert(args.length === 2, 'store32: expected 2 arguments')
+    const [addr, value] = args
     assertAddress(addr, 'store32')
     assert(isInt32(value), 'store32: value must be a number')
     // memory[addr] = value
@@ -153,7 +180,9 @@ export const makeFuncEnv = () => {
 
   const align4 = (n) => (n + 3) & ~3
 
-  funcEnv.set('active', (s) => {
+  funcEnv.set('active', (...args) => {
+    assert(args.length === 1, 'active: expected 1 argument')
+    const [s] = args
     assert(typeof s === 'string', 'active: argument must be a string')
     const textEncoder = new TextEncoder()
     const { read, written } = textEncoder.encodeInto(
@@ -164,7 +193,6 @@ export const makeFuncEnv = () => {
     const pointer = activeDataIndex
     activeDataIndex += align4(written)
     return [pointer, written]
-    // return 0
   })
 
   return funcEnv
