@@ -24,7 +24,7 @@ commas are also not allowed, i've written enough commas for a lifetime, my comma
 
 comments start with `;` and end at the end of the line
 
-uns has special forms here's if:
+uns has special forms here's if
 
 ```
 [if 0 'true' 'false'] ; => 'false'
@@ -32,20 +32,20 @@ uns has special forms here's if:
 ```
 0 is false, everything else is true
 
-you can define functions with `func`:
+you can define functions with `func`
 ```
 [func inc [n] [add n 1]] ; => []
 [inc 1] ; => 2
 ```
 you don't have closures or anonymous functions and function names are not values
 
-you have local variables with `let`:
+you have local variables with `let`
 ```
 [let [x 1] [add x 1]] ; => 2
 [let [x 1 y x] [add y 1]] ; => 2
 ```
 
-instead of recursion you use `loop` and `cont`:
+instead of recursion you use `loop` and `cont`
 ```
 [loop [i 0 r 0]
   [if [lt i 11]
@@ -53,7 +53,7 @@ instead of recursion you use `loop` and `cont`:
     r]] ; => 55
 ```
 
-but you can still use recursion if you want:
+but you can still use recursion if you want
 ```
 [func recursive-gauss [n]
   [if [eq n 0]
@@ -62,7 +62,7 @@ but you can still use recursion if you want:
 [recursive-gauss 10] ; => 55
 ```
 
-at the moment you can run uns by:
+you can run uns by
 
 ```
 npm install
