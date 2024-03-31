@@ -1,4 +1,5 @@
 import { isInt32 } from './lib.js'
+import { print } from './print.js'
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error('built-in func assert ' + msg)

@@ -1,11 +1,23 @@
 import { isInt32 } from './lib.js'
 
+export class CompileError extends Error {
+  constructor(msg) {
+    super('COMPILE: ' + msg)
+  }
+}
+
 const ctAssert = (cond, msg) => {
-  if (!cond) throw new Error('COMPILE: ' + msg)
+  if (!cond) throw new CompileError(msg)
+}
+
+export class RuntimeError extends Error {
+  constructor(msg) {
+    super('RUNTIME: ' + msg)
+  }
 }
 
 const rtAssert = (cond, msg) => {
-  if (!cond) throw new Error('RUNTIME: ' + msg)
+  if (!cond) throw new RuntimeError(msg)
 }
 
 import { isSymbol } from './lib.js'

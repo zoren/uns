@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { makeFuncEnv } from './js/funcEnv.js'
 import { parse } from './js/read.js'
-import { compile } from './js/compile.js'
+import { compile, CompileError, RuntimeError } from './js/compile.js'
 import { print } from './js/print.js'
 
 const commandLineArgs = process.argv.slice(2)
@@ -58,7 +58,12 @@ const prompt = () => {
         console.log(print(cform(new Map(), funcEnv)))
       }
     } catch (e) {
-      console.log(e.message)
+      if (e instanceof CompileError || e instanceof RuntimeError) {
+        console.log(e.message)
+      } else {
+        console.error('INTERNAL ERROR ' + e.message)
+        console.error(e)
+      }
     }
     nextTick(prompt)
   })
