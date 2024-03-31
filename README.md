@@ -62,6 +62,19 @@ but you can still use recursion if you want
 [recursive-gauss 10] ; => 55
 ```
 
+for whatever reason you have case expressions in uns
+
+```
+[case 1
+  1 'one'
+  2 'two'
+  'other'] ; => 'one'
+[case 6
+  [1 3 5 7 9] 'odd'
+  [0 2 4 6 8] 'even'
+  'other'] ; => 'even'
+```
+
 you can run uns by
 
 ```
