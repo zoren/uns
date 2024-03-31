@@ -55,6 +55,7 @@ export const makeCompiler = (funcCtx) => {
       case 'if': {
         ctAssert(rest.length === 3, 'if must have 3 arguments')
         const ccond = compile(rest[0], ctx)
+        // propagate tail position here
         const cthen = compile(rest[1], ctx)
         const celse = compile(rest[2], ctx)
         return (env, fenv) => {
@@ -81,6 +82,7 @@ export const makeCompiler = (funcCtx) => {
         const fnCtx = new Map()
         for (const name of paramNames) fnCtx.set(name, { isParam: true })
         const cbodies = rest.slice(2, -1).map((f) => compile(f, fnCtx))
+        // should be compiled as in tail position
         const clastBody = compile(rest.at(-1), fnCtx)
         const arity = paramNames.length
         return (env, fenv) => {
@@ -115,6 +117,7 @@ export const makeCompiler = (funcCtx) => {
           return [name, cval]
         })
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
+        // compile last body as in tail position, but only if in a loop??
         const lastBody = compile(bodies.at(-1), newCtx)
         if (firstName === 'let')
           return (env, fenv) => {
@@ -149,16 +152,17 @@ export const makeCompiler = (funcCtx) => {
         }
       }
       case 'cont': {
+        // check we are in tail position of a loop, or let in a loop
         const cargs = rest.map((a) => compile(a, ctx))
         return (env, fenv) =>
           new ContinueWrapper(cargs.map((c) => c(env, fenv)))
       }
-    } // end of switch on first name
+    } // end of special form switch
 
     ctAssert(funcCtx.has(firstName), 'undefined function: ' + firstName)
-    const { params } = funcCtx.get(firstName)
+    const { params, variadic } = funcCtx.get(firstName)
     ctAssert(
-      params.length === rest.length,
+      variadic || params.length === rest.length,
       'wrong number of arguments to function: ' + firstName,
     )
     const cargs = rest.map((a) => compile(a, ctx))

@@ -12,98 +12,148 @@ const assert = (cond, msg) => {
   if (!cond) throw new RuntimeErrorBuiltIn(msg)
 }
 
-export const funcCtx = new Map()
-{
-  const params = [
-    { pname: 'a', type: 'i32' },
-    { pname: 'b', type: 'i32' },
-  ]
-  const results = [{ type: 'i32' }]
-  for (const n of [
-    'add',
-    'sub',
-    'mul',
-    'bit-and',
-    'bit-or',
-    'xor',
-    'shift-right',
+const funcCtx = new Map()
 
-    'eq',
-    'neq',
-    'lt',
-    'le',
-    'gt',
-    'ge',
-  ]) {
-    funcCtx.set(n, { params, results })
-  }
+const funcEnv = new Map()
+
+const params = [
+  { pname: 'a', type: 'i32' },
+  { pname: 'b', type: 'i32' },
+]
+const results = [{ type: 'i32' }]
+
+for (const [name, fn] of [
+  ['add', (a, b) => a + b],
+  ['sub', (a, b) => a - b],
+  ['mul', (a, b) => a * b],
+
+  ['bit-and', (a, b) => a & b],
+  ['bit-or', (a, b) => a | b],
+  ['xor', (a, b) => a ^ b],
+  ['shift-right', (a, b) => a >> b],
+]) {
+  funcEnv.set(name, (...args) => {
+    assert(args.length === 2, name + ': expected 2 arguments')
+    const [a, b] = args
+    assert(isInt32(a), 'first argument must be a number')
+    assert(isInt32(b), 'second argument must be a number')
+    return fn(a, b) | 0
+  })
+  funcCtx.set(name, { params, results })
 }
 
-funcCtx.set('abort', {params: [{pname: 'msg', type: 'string'}], results: []})
-
-export const makeFuncCtx = () => {
-  return new Map(funcCtx)
+for (const [name, fn] of [
+  ['eq', (a, b) => a === b],
+  ['neq', (a, b) => a !== b],
+  ['lt', (a, b) => a < b],
+  ['le', (a, b) => a <= b],
+  ['gt', (a, b) => a > b],
+  ['ge', (a, b) => a >= b],
+]) {
+  funcEnv.set(name, (...args) => {
+    assert(args.length === 2, name + ': expected 2 arguments')
+    const [a, b] = args
+    assert(isInt32(a), 'first argument must be a number')
+    assert(isInt32(b), 'second argument must be a number')
+    return Number(fn(a, b))
+  })
+  funcCtx.set(name, { params, results })
 }
+
+funcEnv.set('abort', (...args) => {
+  assert(args.length === 1, 'abort: expected 1 argument')
+  const [msg] = args
+  throw new Error('ABORT: ' + msg)
+})
+
+funcCtx.set('abort', {
+  params: [{ pname: 'msg', type: 'string' }],
+  results: [],
+})
+
+funcEnv.set('list', (...args) => args)
+
+funcCtx.set('list', {
+  variadic: true,
+  params: [{ pname: 'args', type: 'value' }],
+  results: [{ type: 'list' }],
+})
+
+funcEnv.set('print', (...args) => {
+  console.log(...args.map(print))
+  return []
+})
+
+funcCtx.set('print', {
+  variadic: true,
+  params: [{ pname: 'args', type: 'value' }],
+  results: [],
+})
+
+funcEnv.set('nth', (...args) => {
+  assert(args.length === 2, 'expected 2 arguments')
+  const [list, n] = args
+  assert(Array.isArray(list), 'first argument must be a list')
+  assert(isInt32(n), 'second argument must be a number')
+  assert(n >= 0 && n < list.length, 'index out of bounds')
+  return list[n]
+})
+
+funcCtx.set('nth', {
+  params: [
+    { pname: 'list', type: 'list' },
+    { pname: 'n', type: 'i32' },
+  ],
+  results: [{ type: 'value' }],
+})
+
+funcCtx.set('memory-pages', {
+  params: [],
+  results: [{ type: 'i32' }],
+})
+
+funcCtx.set('print-object', {
+  params: [{ pname: 'addr', type: 'i32' }],
+  results: [],
+})
+// dest, src, size
+funcCtx.set('memory-copy', {
+  params: [
+    { pname: 'dest', type: 'i32' },
+    { pname: 'src', type: 'i32' },
+    { pname: 'size', type: 'i32' },
+  ],
+  results: [],
+})
+
+funcCtx.set('memory-init-string', {
+  params: [
+    { pname: 'dest', type: 'i32' },
+    { pname: 's', type: 'string' },
+  ],
+  results: [],
+})
+
+for (const name of ['load8u', 'load32']) {
+  funcCtx.set(name, {
+    params: [{ pname: 'addr', type: 'i32' }],
+    results: [{ type: 'i32' }],
+  })
+}
+
+for (const name of ['store8', 'store32']) {
+  funcCtx.set(name, {
+    params: [
+      { pname: 'addr', type: 'i32' },
+      { pname: 'value', type: 'i32' },
+    ],
+    results: [],
+  })
+}
+
+export const makeFuncCtx = () => new Map(funcCtx)
 
 export const makeFuncEnv = () => {
-  const funcEnv = new Map()
-
-  for (const [name, fn] of [
-    ['add', (a, b) => a + b],
-    ['sub', (a, b) => a - b],
-    ['mul', (a, b) => a * b],
-
-    ['bit-and', (a, b) => a & b],
-    ['bit-or', (a, b) => a | b],
-    ['xor', (a, b) => a ^ b],
-    ['shift-right', (a, b) => a >> b],
-  ]) {
-    funcEnv.set(name, (...args) => {
-      assert(args.length === 2, name + ': expected 2 arguments')
-      const [a, b] = args
-      assert(isInt32(a), 'first argument must be a number')
-      assert(isInt32(b), 'second argument must be a number')
-      return fn(a, b) | 0
-    })
-  }
-
-  for (const [name, fn] of [
-    ['eq', (a, b) => a === b],
-    ['neq', (a, b) => a !== b],
-    ['lt', (a, b) => a < b],
-    ['le', (a, b) => a <= b],
-    ['gt', (a, b) => a > b],
-    ['ge', (a, b) => a >= b],
-  ]) {
-    funcEnv.set(name, (...args) => {
-      assert(args.length === 2, name + ': expected 2 arguments')
-      const [a, b] = args
-      assert(isInt32(a), 'first argument must be a number')
-      assert(isInt32(b), 'second argument must be a number')
-      return Number(fn(a, b))
-    })
-  }
-
-  funcEnv.set('list', (...args) => args)
-
-  funcEnv.set('print', (...args) => {
-    console.log(...args.map(print))
-    return []
-  })
-
-  funcEnv.set('nth', (...args) => {
-    assert(args.length === 2, 'expected 2 arguments')
-    const [list, n] = args
-    assert(Array.isArray(list), 'first argument must be a list')
-    assert(isInt32(n), 'second argument must be a number')
-    assert(n >= 0 && n < list.length, 'index out of bounds')
-    return list[n]
-  })
-
-  funcEnv.set('abort', (msg) => {
-    throw new Error('ABORT: ' + msg)
-  })
-
   const memoryPages = 1
   const memory = new Uint8Array(65536 * memoryPages)
 
@@ -119,7 +169,6 @@ export const makeFuncEnv = () => {
     const [addr] = args
     assertAddress(addr, 'print-object')
     const view = new DataView(memory.buffer)
-    // return view.getInt32(addr, true)
     const tag = view.getInt32(addr, true)
     switch (tag) {
       case 1:
@@ -207,25 +256,6 @@ export const makeFuncEnv = () => {
     const view = new DataView(memory.buffer)
     view.setInt32(addr, value, true)
     return []
-  })
-
-  let activeDataIndex = 4
-
-  const align4 = (n) => (n + 3) & ~3
-
-  funcEnv.set('active', (...args) => {
-    assert(args.length === 1, 'active: expected 1 argument')
-    const [s] = args
-    assert(typeof s === 'string', 'active: argument must be a string')
-    const textEncoder = new TextEncoder()
-    const { read, written } = textEncoder.encodeInto(
-      s,
-      memory.subarray(activeDataIndex),
-    )
-    assert(read === s.length, 'active: could not encode entire string')
-    const pointer = activeDataIndex
-    activeDataIndex += align4(written)
-    return [pointer, written]
   })
 
   return funcEnv

@@ -28,36 +28,31 @@
 [func get-token [start end]
   [assert [lt start end] 'empty token']
   [let [c [load8u start]]
-    [case c
-
-      [0x09 0x0a 0x0d 0x20] ; '\t' '\n' '\r' ' '
+    [if [is-whitespace c]
       [loop [j [inc start]]
         [if [if [lt j end] [is-whitespace [load8u j]] 0]
           [cont [inc j]]
           [list 1 start j j]]]
-
-      0x27 ; '\''
-      [loop [j [inc start]]
-        [if [if [lt j end] [neq [load8u j] 0x27] 0]
-          [cont [inc j]]
-          [list 2 [inc start] [dec j] [inc j]]]]
-
-      0x3b ; ';'
-      [loop [j [inc start]]
-        [if [if [lt j end] [neq [load8u j] 0x0a] 0]
-          [cont [inc j]]
-          [list 4 start j j]]]
-
-      [0x5b 0x5d] ; '[' ']'
-      [list 5 start [inc start] [inc start]]
-
-      [if [is-ident-char c]
+      [if [eq c 0x27] ; '\''
         [loop [j [inc start]]
-          [if [if [lt j end] [is-ident-char [load8u j]] 0]
+          [if [if [lt j end] [neq [load8u j] 0x27] 0]
             [cont [inc j]]
-            [list 6 start j j]]]
+            [list 2 [inc start] [dec j] [inc j]]]]
+        [if [eq c 0x3b] ; ';'
+          [loop [j [inc start]]
+            [if [if [lt j end] [neq [load8u j] 0x0a] 0]
+              [cont [inc j]]
+              [list 4 start j j]]]
+          [if [bit-or [eq c 0x5b] [eq c 0x5d]] ; '[' ']'
+            [list 5 start [inc start] [inc start]]
 
-        [abort 'unexpected character' c]]]]]
+            [if [is-ident-char c]
+              [loop [j [inc start]]
+                [if [if [lt j end] [is-ident-char [load8u j]] 0]
+                  [cont [inc j]]
+                  [list 6 start j j]]]
+
+              [abort 'unexpected character']]]]]]]]
 
 ;; init memory top
 [store32 0 4]
