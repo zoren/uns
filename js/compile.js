@@ -77,8 +77,7 @@ export const makeCompiler = (funcCtx) => {
     switch (firstName) {
       case 'if': {
         ctAssert(rest.length === 3, 'if must have 3 arguments')
-        const ccond = compile(rest[0], ctx)
-        // propagate tail position here
+        const ccond = compile(rest[0], { ...ctx, isLoopTailPosition: false })
         const cthen = compile(rest[1], ctx)
         const celse = compile(rest[2], ctx)
         return (env, fenv) => {
@@ -106,7 +105,6 @@ export const makeCompiler = (funcCtx) => {
         for (const name of paramNames) bodyCtxVars.set(name, { isParam: true })
         const bodyCtx = { vars: bodyCtxVars, outer: ctx, bindingForm: ast }
         const cbodies = rest.slice(2, -1).map((f) => compile(f, bodyCtx))
-        // should be compiled as in tail position
         const clastBody = compile(rest.at(-1), bodyCtx)
         const arity = paramNames.length
         return (env, fenv) => {
@@ -147,9 +145,11 @@ export const makeCompiler = (funcCtx) => {
         newCtx.bindingCount = bindingCount
 
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
-        // compile last body as in tail position, but only if in a loop??
-        const lastBody = compile(bodies.at(-1), newCtx)
-        if (firstName === 'let')
+        if (firstName === 'let') {
+          const lastBody = compile(bodies.at(-1), {
+            ...newCtx,
+            isLoopTailPosition: ctx.isLoopTailPosition,
+          })
           return (env, fenv) => {
             const newEnv = new Map(env)
             for (const [name, cBindExpr] of cbindings) {
@@ -158,9 +158,11 @@ export const makeCompiler = (funcCtx) => {
             for (const body of butLastBodies) body(newEnv, fenv)
             return lastBody(newEnv, fenv)
           }
-
-
-        // todo check statically args arity to cont
+        }
+        const lastBody = compile(bodies.at(-1), {
+          ...newCtx,
+          isLoopTailPosition: true,
+        })
         return (env, fenv) => {
           const newEnv = new Map(env)
           for (const [name, cBindExpr] of cbindings) {
@@ -181,8 +183,7 @@ export const makeCompiler = (funcCtx) => {
         }
       }
       case 'cont': {
-        // check we are in tail position of a loop, or let in a loop
-        // and arity matches
+        ctAssert(ctx.isLoopTailPosition, 'cont must be in loop tail position')
         const loopCtx = getEnclosingLoopCtx(ctx)
         ctAssert(loopCtx, 'cont must be inside a loop')
         const { bindingCount } = loopCtx
