@@ -149,7 +149,13 @@ export const makeCompiler = (funcCtx) => {
         const bindingNames = cbindings.map(([name]) => name)
         const bindingCount = cbindings.length
         newCtx.bindingCount = bindingCount
-
+        const cbind = (env, fenv) => {
+          const varValues = new Map()
+          const newEnv = { varValues, outer: env }
+          for (const [name, cBindExpr] of cbindings)
+            varValues.set(name, cBindExpr(newEnv, fenv))
+          return newEnv
+        }
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
         if (firstName === 'let') {
           const lastBody = compile(bodies.at(-1), {
@@ -157,10 +163,7 @@ export const makeCompiler = (funcCtx) => {
             isLoopTailPosition,
           })
           return (env, fenv) => {
-            const varValues = new Map()
-            const newEnv = { varValues, outer: env }
-            for (const [name, cBindExpr] of cbindings)
-              varValues.set(name, cBindExpr(newEnv, fenv))
+            const newEnv = cbind(env, fenv)
             for (const body of butLastBodies) body(newEnv, fenv)
             return lastBody(newEnv, fenv)
           }
@@ -170,10 +173,8 @@ export const makeCompiler = (funcCtx) => {
           isLoopTailPosition: true,
         })
         return (env, fenv) => {
-          const varValues = new Map()
-          const newEnv = { varValues, outer: env }
-          for (const [name, cBindExpr] of cbindings)
-            varValues.set(name, cBindExpr(newEnv, fenv))
+          const newEnv = cbind(env, fenv)
+          const { varValues } = newEnv
           while (true) {
             for (const body of butLastBodies) body(newEnv, fenv)
             const result = lastBody(newEnv, fenv)
