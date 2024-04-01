@@ -96,8 +96,7 @@ export const parse = (sArg) => {
         }
         continue
       }
-      if (tokenType === 'whitespace') continue
-      return
+      if (tokenType !== 'whitespace') return
     } while (true)
   }
 
