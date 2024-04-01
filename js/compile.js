@@ -34,13 +34,23 @@ class ContinueWrapper {
   }
 }
 
+const getFromContext = (ctx, name) => {
+  if (ctx === null) return null
+  const { vars, outer } = ctx
+  if (!vars) {
+    console.error('no vars in context', ctx)
+  }
+  if (vars.has(name)) return vars.get(name)
+  return getFromContext(outer, name)
+}
+
 export const makeCompiler = (funcCtx) => {
   const compile = (ast, ctx) => {
     if (isInt32(ast) || typeof ast === 'string') return () => ast
     {
       const symbolName = isSymbol(ast)
       if (symbolName) {
-        ctAssert(ctx.get(symbolName), 'undefined symbol: ' + symbolName)
+        ctAssert(getFromContext(ctx, symbolName), 'undefined symbol: ' + symbolName)
         return (env) => {
           rtAssert(env.has(symbolName), 'undefined symbol: ' + symbolName)
           return env.get(symbolName)
@@ -79,11 +89,12 @@ export const makeCompiler = (funcCtx) => {
             pname
           }),
         })
-        const fnCtx = new Map()
-        for (const name of paramNames) fnCtx.set(name, { isParam: true })
-        const cbodies = rest.slice(2, -1).map((f) => compile(f, fnCtx))
+        const bodyCtxVars = new Map()
+        for (const name of paramNames) bodyCtxVars.set(name, { isParam: true })
+        const bodyCtx = { vars: bodyCtxVars, outer: ctx }
+        const cbodies = rest.slice(2, -1).map((f) => compile(f, bodyCtx))
         // should be compiled as in tail position
-        const clastBody = compile(rest.at(-1), fnCtx)
+        const clastBody = compile(rest.at(-1), bodyCtx)
         const arity = paramNames.length
         return (env, fenv) => {
           fenv.set(fname, (...args) => {
@@ -109,11 +120,13 @@ export const makeCompiler = (funcCtx) => {
         const [bindings, ...bodies] = rest
         ctAssert(Array.isArray(bindings), 'second argument must be a list')
         ctAssert(bindings.length % 2 === 0, 'bindings must be of even length')
-        const newCtx = new Map(ctx)
+        const newCtxVars = new Map()
+        const newCtx = { vars: newCtxVars, outer: ctx }
+
         const cbindings = [...pairwise(bindings)].map(([binder, form]) => {
           const name = assertSymbol(binder, 'key must be a symbol')
           const cval = compile(form, newCtx)
-          newCtx.set(name, { letOrLoop: firstName })
+          newCtxVars.set(name, { letOrLoop: firstName })
           return [name, cval]
         })
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
@@ -153,6 +166,7 @@ export const makeCompiler = (funcCtx) => {
       }
       case 'cont': {
         // check we are in tail position of a loop, or let in a loop
+        // and arity matches
         const cargs = rest.map((a) => compile(a, ctx))
         return (env, fenv) =>
           new ContinueWrapper(cargs.map((c) => c(env, fenv)))
@@ -173,7 +187,7 @@ export const makeCompiler = (funcCtx) => {
     }
   }
   return (ast) => {
-    const cform = compile(ast, new Map())
+    const cform = compile(ast, null)
     return (fenv) => cform(new Map(), fenv)
   }
 }

@@ -46,11 +46,12 @@ const makeLexer = (inputString) => {
       case `'`: {
         scan((c) => c !== "'" && !isControlChar(c))
         const text = inputString.slice(startIndex + 1, index)
+        // should we skip over when it's a control char?
         index++
         return { tokenType: 'string', text, startIndex }
       }
     }
-    assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
+    assert(isSymbolChar(firstChar), `illegal character ${firstChar} charcode ${firstChar.charCodeAt(0)}`)
     scan(isSymbolChar)
     return {
       tokenType: 'word',
