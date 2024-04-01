@@ -1,4 +1,4 @@
-import { parse } from './read.js'
+import { makeLexBox, parse } from './read.js'
 import { makeCompiler, CompileError } from './compile.js'
 import { RuntimeError } from './lib.js'
 import { print } from './print.js'
@@ -9,8 +9,11 @@ export const makeReadEvalPrint = () => {
   const funcCtx = makeFuncCtx()
   const compile = makeCompiler(funcCtx)
   return (content, { log, error }) => {
+    const lexBox = makeLexBox(content)
+    const readForm = parse(lexBox)
     try {
-      for (const form of parse(content)) {
+      while (lexBox.currentToken() !== null) {
+        const form = readForm()
         const cform = compile(form)
         log(print(cform(funcEnv)))
       }

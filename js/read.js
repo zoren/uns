@@ -64,7 +64,7 @@ const makeLexer = (inputString) => {
   }
 }
 
-const makeLexBox = (inputString) => {
+export const makeLexBox = (inputString) => {
   const lexer = makeLexer(inputString)
   let currentToken = null
   return {
@@ -93,9 +93,7 @@ const setOrGetMeta = (form) => {
   return form.meta
 }
 
-export const parse = (sArg) => {
-  const lexBox = makeLexBox(sArg)
-
+export const parse = (lexBox) => {
   let prevForm = null
 
   const next = () => {
@@ -150,7 +148,5 @@ export const parse = (sArg) => {
     }
   }
 
-  const forms = []
-  while (lexBox.currentToken() !== null) forms.push(readForm())
-  return forms
+  return readForm
 }

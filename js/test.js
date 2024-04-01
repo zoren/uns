@@ -1,4 +1,4 @@
-import { parse } from './read.js'
+import { makeLexBox, parse } from './read.js'
 import { makeCompiler } from './compile.js'
 import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
@@ -20,9 +20,9 @@ const compile = makeCompiler(funcCtx)
 
 let i = 0
 for (const [expected, input] of tests) {
-  const forms = parse(input)
-  if (forms.length !== 1) throw new Error('expected 1 form')
-  const [form] = forms
+  const lexbox = makeLexBox(input)
+  const readForm = parse(lexbox)
+  const form = readForm()
   const cform = compile(form)
   const eform = cform(funcEnv)
   const result = print(eform)
@@ -34,8 +34,10 @@ for (const [expected, input] of tests) {
 import fs from 'node:fs'
 
 const testContent = fs.readFileSync('./examples/test.uns', 'utf8')
-const forms = parse(testContent)
-for (const form of forms) {
+const lexbox = makeLexBox(testContent)
+const readForm = parse(lexbox)
+while (lexbox.currentToken() !== null) {
+  const form = readForm()
   const cform = compile(form)
   const eform = cform(funcEnv)
   const result = print(eform)
