@@ -133,11 +133,7 @@ export const parse = (sArg) => {
     }
   }
 
-  const readForms = () => {
-    const forms = []
-    while (currentToken !== null) forms.push(readForm())
-    return forms
-  }
-
-  return { readForms }
+  const forms = []
+  while (currentToken !== null) forms.push(readForm())
+  return forms
 }

@@ -10,10 +10,9 @@ export const makeReadEvalPrint = () => {
   const compile = makeCompiler(funcCtx)
   return (content, { log, error }) => {
     try {
-      const { readForms } = parse(content)
-      for (const form of readForms()) {
+      for (const form of parse(content)) {
         const cform = compile(form)
-        log(print(cform(new Map(), funcEnv)))
+        log(print(cform(funcEnv)))
       }
     } catch (e) {
       if (e instanceof CompileError || e instanceof RuntimeError) {

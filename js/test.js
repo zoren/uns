@@ -20,12 +20,11 @@ const compile = makeCompiler(funcCtx)
 
 let i = 0
 for (const [expected, input] of tests) {
-  const { readForms } = parse(input)
-  const forms = readForms()
+  const forms = parse(input)
   if (forms.length !== 1) throw new Error('expected 1 form')
   const [form] = forms
   const cform = compile(form)
-  const eform = cform(new Map(), funcEnv)
+  const eform = cform(funcEnv)
   const result = print(eform)
   console.log(`${input} ; => ${result}`)
   console.assert(result === expected, `expected ${expected}, got ${result}`)
@@ -35,11 +34,10 @@ for (const [expected, input] of tests) {
 import fs from 'node:fs'
 
 const testContent = fs.readFileSync('./examples/test.uns', 'utf8')
-const { readForms } = parse(testContent)
-const forms = readForms()
+const forms = parse(testContent)
 for (const form of forms) {
   const cform = compile(form)
-  const eform = cform(new Map(), funcEnv)
+  const eform = cform(funcEnv)
   const result = print(eform)
 
   const comments = form.meta.comments || []

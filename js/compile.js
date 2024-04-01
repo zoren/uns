@@ -172,5 +172,8 @@ export const makeCompiler = (funcCtx) => {
       return fn(...cargs.map((c) => c(env, funcEnv)))
     }
   }
-  return (ast) => compile(ast, new Map())
+  return (ast) => {
+    const cform = compile(ast, new Map())
+    return (fenv) => cform(new Map(), fenv)
+  }
 }
