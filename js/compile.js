@@ -74,6 +74,7 @@ export const makeCompiler = (funcCtx) => {
     if (ast.length === 0) return () => ast
     const [first, ...rest] = ast
     const firstName = assertSymbol(first, 'first element must be a symbol')
+    const isLoopTailPosition = ctx && ctx.isLoopTailPosition
     switch (firstName) {
       case 'if': {
         ctAssert(rest.length === 3, 'if must have 3 arguments')
@@ -148,7 +149,7 @@ export const makeCompiler = (funcCtx) => {
         if (firstName === 'let') {
           const lastBody = compile(bodies.at(-1), {
             ...newCtx,
-            isLoopTailPosition: ctx.isLoopTailPosition,
+            isLoopTailPosition,
           })
           return (env, fenv) => {
             const newEnv = new Map(env)
@@ -183,7 +184,7 @@ export const makeCompiler = (funcCtx) => {
         }
       }
       case 'cont': {
-        ctAssert(ctx.isLoopTailPosition, 'cont must be in loop tail position')
+        ctAssert(isLoopTailPosition, 'cont must be in loop tail position')
         const loopCtx = getEnclosingLoopCtx(ctx)
         ctAssert(loopCtx, 'cont must be inside a loop')
         const { bindingCount } = loopCtx
