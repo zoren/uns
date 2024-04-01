@@ -148,24 +148,6 @@
 
 [print-object [alloc-string-from-bytes 0 0]]
 
-[func get-tokens [start end]
-  [loop [i start]
-    [if [lt i end]
-      [let [token [get-token i end]]
-        [print token]
-        [cont [nth token 2]]]
-      0]]]
-
-[func parse [s]
-  [let
-    [start [nth s 0]
-     len [nth s 1]]
-    [get-tokens start [add start len]]]]
-
-;  [parse [active 'hej [du] ; ']]
-
-;  [parse [active '[add 2 4]']]
-
 [func print-ascii []
   [loop [i 32]
     [print-object [alloc-char i]]

@@ -90,23 +90,6 @@ funcCtx.set('print', {
   results: [],
 })
 
-funcEnv.set('nth', (...args) => {
-  assert(args.length === 2, 'expected 2 arguments')
-  const [list, n] = args
-  assert(Array.isArray(list), 'first argument must be a list')
-  assert(isInt32(n), 'second argument must be a number')
-  assert(n >= 0 && n < list.length, 'index out of bounds')
-  return list[n]
-})
-
-funcCtx.set('nth', {
-  params: [
-    { pname: 'list', type: 'list' },
-    { pname: 'n', type: 'i32' },
-  ],
-  results: [{ type: 'value' }],
-})
-
 funcCtx.set('memory-pages', {
   params: [],
   results: [{ type: 'i32' }],
