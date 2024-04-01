@@ -65,8 +65,12 @@ export const makeCompiler = (funcCtx) => {
           'undefined symbol: ' + symbolName,
         )
         return (env) => {
-          rtAssert(env.has(symbolName), 'undefined symbol: ' + symbolName)
-          return env.get(symbolName)
+          while (true) {
+            rtAssert(env !== null, 'undefined symbol: ' + symbolName)
+            const { varValues, outer } = env
+            if (varValues.has(symbolName)) return varValues.get(symbolName)
+            env = outer
+          }
         }
       }
     }
@@ -114,9 +118,10 @@ export const makeCompiler = (funcCtx) => {
               args.length === arity,
               'wrong number of arguments to function: ' + fname,
             )
-            // todo don't copy env
-            const newEnv = new Map(env)
-            for (let i = 0; i < arity; i++) newEnv.set(paramNames[i], args[i])
+            const varValues = new Map()
+            for (let i = 0; i < arity; i++)
+              varValues.set(paramNames[i], args[i])
+            const newEnv = { varValues, outer: env }
             for (const cbody of cbodies) cbody(newEnv, fenv)
             return clastBody(newEnv, fenv)
           })
@@ -152,10 +157,10 @@ export const makeCompiler = (funcCtx) => {
             isLoopTailPosition,
           })
           return (env, fenv) => {
-            const newEnv = new Map(env)
-            for (const [name, cBindExpr] of cbindings) {
-              newEnv.set(name, cBindExpr(newEnv, fenv))
-            }
+            const varValues = new Map()
+            const newEnv = { varValues, outer: env }
+            for (const [name, cBindExpr] of cbindings)
+              varValues.set(name, cBindExpr(newEnv, fenv))
             for (const body of butLastBodies) body(newEnv, fenv)
             return lastBody(newEnv, fenv)
           }
@@ -165,10 +170,10 @@ export const makeCompiler = (funcCtx) => {
           isLoopTailPosition: true,
         })
         return (env, fenv) => {
-          const newEnv = new Map(env)
-          for (const [name, cBindExpr] of cbindings) {
-            newEnv.set(name, cBindExpr(newEnv, fenv))
-          }
+          const varValues = new Map()
+          const newEnv = { varValues, outer: env }
+          for (const [name, cBindExpr] of cbindings)
+            varValues.set(name, cBindExpr(newEnv, fenv))
           while (true) {
             for (const body of butLastBodies) body(newEnv, fenv)
             const result = lastBody(newEnv, fenv)
@@ -179,7 +184,7 @@ export const makeCompiler = (funcCtx) => {
               'wrong number of arguments to cont',
             )
             for (let i = 0; i < bindingCount; i++)
-              newEnv.set(bindingNames[i], args[i])
+              varValues.set(bindingNames[i], args[i])
           }
         }
       }
@@ -213,6 +218,6 @@ export const makeCompiler = (funcCtx) => {
   }
   return (ast) => {
     const cform = compile(ast, null)
-    return (fenv) => cform(new Map(), fenv)
+    return (fenv) => cform(null, fenv)
   }
 }
