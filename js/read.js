@@ -51,13 +51,29 @@ const makeLexer = (inputString) => {
         return { tokenType: 'string', text, startIndex }
       }
     }
-    assert(isSymbolChar(firstChar), `illegal character ${firstChar} charcode ${firstChar.charCodeAt(0)}`)
+    assert(
+      isSymbolChar(firstChar),
+      `illegal character ${firstChar} charcode ${firstChar.charCodeAt(0)}`,
+    )
     scan(isSymbolChar)
     return {
       tokenType: 'word',
       text: inputString.slice(startIndex, index),
       startIndex,
     }
+  }
+}
+
+const makeLexBox = (inputString) => {
+  const lexer = makeLexer(inputString)
+  let currentToken = null
+  return {
+    currentToken: () => currentToken,
+    next: () => {
+      // if (currentToken === null) return null
+      currentToken = lexer()
+      return null
+    },
   }
 }
 
@@ -78,14 +94,14 @@ const setOrGetMeta = (form) => {
 }
 
 export const parse = (sArg) => {
-  const lexer = makeLexer(sArg)
-  let currentToken = null
+  const lexBox = makeLexBox(sArg)
 
   let prevForm = null
 
   const next = () => {
     do {
-      currentToken = lexer()
+      lexBox.next()
+      const currentToken = lexBox.currentToken()
       if (currentToken === null) return
       const { tokenType } = currentToken
       if (tokenType === 'comment') {
@@ -103,7 +119,7 @@ export const parse = (sArg) => {
   next()
 
   const readForm = () => {
-    const token = currentToken
+    const token = lexBox.currentToken()
     next()
     const { text, tokenType } = token
     switch (tokenType) {
@@ -117,6 +133,7 @@ export const parse = (sArg) => {
         const list = []
         setOrGetMeta(list).startBracket = token
         while (true) {
+          const currentToken = lexBox.currentToken()
           if (currentToken === null) break
           const { tokenType } = currentToken
           if (tokenType === ']') {
@@ -134,6 +151,6 @@ export const parse = (sArg) => {
   }
 
   const forms = []
-  while (currentToken !== null) forms.push(readForm())
+  while (lexBox.currentToken() !== null) forms.push(readForm())
   return forms
 }
