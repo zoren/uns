@@ -1,4 +1,4 @@
-import { makeLexBox, parse } from './read.js'
+import { makeLexBox, skipWhitespaceComments, parse } from './read.js'
 import { makeCompiler, CompileError } from './compile.js'
 import { RuntimeError } from './lib.js'
 import { print } from './print.js'
@@ -12,7 +12,9 @@ export const makeReadEvalPrint = () => {
     const lexBox = makeLexBox(content)
     const readForm = parse(lexBox)
     try {
-      while (lexBox.currentToken() !== null) {
+      while (true) {
+        skipWhitespaceComments(lexBox)
+        if (lexBox.currentToken() === null) break
         const form = readForm()
         const cform = compile(form)
         log(print(cform(funcEnv)))

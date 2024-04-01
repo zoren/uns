@@ -66,15 +66,26 @@ const makeLexer = (inputString) => {
 
 export const makeLexBox = (inputString) => {
   const lexer = makeLexer(inputString)
-  let currentToken = null
-  return {
-    currentToken: () => currentToken,
-    next: () => {
-      // if (currentToken === null) return null
-      currentToken = lexer()
-      return null
-    },
+  let token = null
+  const currentToken = () => token
+  const next = () => {
+    token = lexer()
+    return null
   }
+  return {
+    currentToken,
+    next,
+  }
+}
+
+export const skipWhitespaceComments = ({ currentToken, next }) => {
+  do {
+    const token = currentToken()
+    if (token === null) return
+    const { tokenType } = token
+    if (tokenType !== 'comment' && tokenType !== 'whitespace') return
+    next()
+  } while (true)
 }
 
 const textToNumberOrSymbol = (text) => {
@@ -88,55 +99,30 @@ const textToNumberOrSymbol = (text) => {
   return symbol(text)
 }
 
-const setOrGetMeta = (form) => {
-  if (form.meta === undefined) form.meta = {}
-  return form.meta
-}
-
 export const parse = (lexBox) => {
-  let prevForm = null
-
-  const next = () => {
-    do {
-      lexBox.next()
-      const currentToken = lexBox.currentToken()
-      if (currentToken === null) return
-      const { tokenType } = currentToken
-      if (tokenType === 'comment') {
-        if (prevForm !== null) {
-          setOrGetMeta(prevForm).comments = []
-          const { comments } = prevForm.meta
-          comments.push(currentToken)
-        }
-        continue
-      }
-      if (tokenType !== 'whitespace') return
-    } while (true)
-  }
-
-  next()
+  lexBox.next()
 
   const readForm = () => {
+    skipWhitespaceComments(lexBox)
     const token = lexBox.currentToken()
-    next()
-    const { text, tokenType } = token
+    // if (token === null) return null
+    assert(token !== null, 'unexpected end of input in readForm')
+    lexBox.next()
+    const { text, tokenType, startIndex } = token
     switch (tokenType) {
       case 'string':
-        prevForm = null
         return text
       case 'word':
-        prevForm = null
         return textToNumberOrSymbol(text)
       case '[': {
         const list = []
-        setOrGetMeta(list).startBracket = token
         while (true) {
+          skipWhitespaceComments(lexBox)
           const currentToken = lexBox.currentToken()
           if (currentToken === null) break
           const { tokenType } = currentToken
           if (tokenType === ']') {
-            prevForm = list
-            next()
+            lexBox.next()
             break
           }
           list.push(readForm())
@@ -144,7 +130,9 @@ export const parse = (lexBox) => {
         return list
       }
       default:
-        throw new Error(`unexpected token ${text} of type ${tokenType}`)
+        throw new Error(
+          `unexpected token ${text} of type ${tokenType} at ${startIndex}`,
+        )
     }
   }
 

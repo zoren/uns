@@ -1,4 +1,4 @@
-import { makeLexBox, parse } from './read.js'
+import { makeLexBox, skipWhitespaceComments, parse } from './read.js'
 import { makeCompiler } from './compile.js'
 import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
@@ -38,18 +38,28 @@ const lexbox = makeLexBox(testContent)
 const readForm = parse(lexbox)
 while (lexbox.currentToken() !== null) {
   const form = readForm()
+  const expecteds = []
+  {
+    let token
+    while ((token = lexbox.currentToken())) {
+      const { tokenType } = token
+      if (tokenType === 'whitespace') {
+        lexbox.next()
+        continue
+      } else if (tokenType === 'comment') {
+        const commentText = token.text.trim()
+        if (commentText.startsWith('=>')) {
+          expecteds.push(commentText.slice(2).trim())
+        }
+        lexbox.next()
+        continue
+      } else break
+    }
+  }
   const cform = compile(form)
   const eform = cform(funcEnv)
   const result = print(eform)
 
-  const comments = form.meta.comments || []
-  const expecteds = []
-  for (const comment of comments) {
-    const commentText = comment.text.trim()
-    if (!commentText.startsWith('=>')) continue
-    const expected = commentText.slice(2).trim()
-    expecteds.push(expected)
-  }
   if (expecteds.length === 0) continue
   if (expecteds.length > 1) throw new Error('too many expecteds')
   const expected = expecteds[0]

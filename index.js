@@ -10,7 +10,6 @@ const readEvalPrint = makeReadEvalPrint()
 if (commandLineArgs.length === 1) {
   const content = fs.readFileSync(commandLineArgs[0], 'utf8')
   readEvalPrint(content, console)
-
 }
 
 import * as readline from 'node:readline'
