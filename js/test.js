@@ -1,4 +1,4 @@
-import { makeLexBox, skipWhitespaceComments, parse } from './read.js'
+import { makeLexBox, parse } from './read.js'
 import { makeCompiler } from './compile.js'
 import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'

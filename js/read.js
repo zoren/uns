@@ -48,7 +48,7 @@ const makeLexer = (inputString) => {
         const text = inputString.slice(startIndex + 1, index)
         // should we skip over when it's a control char?
         index++
-        return { tokenType: 'string', text, startIndex }
+        return { tokenType: 'value', text, startIndex, value: text }
       }
     }
     assert(
@@ -56,10 +56,25 @@ const makeLexer = (inputString) => {
       `illegal character ${firstChar} charcode ${firstChar.charCodeAt(0)}`,
     )
     scan(isSymbolChar)
+    const text = inputString.slice(startIndex, index)
+
+    try {
+      const bi = BigInt(text)
+      assert(-0x80000000n <= bi && bi <= 0x7fffffffn, `number out of i32 range`)
+      return {
+        tokenType: 'value',
+        text,
+        startIndex,
+        value: Number(text),
+      }
+    } catch (e) {
+      if (!(e instanceof SyntaxError)) throw e
+    }
     return {
-      tokenType: 'word',
-      text: inputString.slice(startIndex, index),
+      tokenType: 'symbol',
+      text,
       startIndex,
+      value: symbol(text),
     }
   }
 }
@@ -88,32 +103,19 @@ export const skipWhitespaceComments = ({ currentToken, next }) => {
   } while (true)
 }
 
-const textToNumberOrSymbol = (text) => {
-  try {
-    const bi = BigInt(text)
-    assert(-0x80000000n <= bi && bi <= 0x7fffffffn, `number out of i32 range`)
-    return Number(bi)
-  } catch (e) {
-    if (!(e instanceof SyntaxError)) throw e
-  }
-  return symbol(text)
-}
-
 export const parse = (lexBox) => {
   lexBox.next()
 
   const readForm = () => {
     skipWhitespaceComments(lexBox)
     const token = lexBox.currentToken()
-    // if (token === null) return null
     assert(token !== null, 'unexpected end of input in readForm')
     lexBox.next()
     const { text, tokenType, startIndex } = token
     switch (tokenType) {
-      case 'string':
-        return text
-      case 'word':
-        return textToNumberOrSymbol(text)
+      case 'value':
+      case 'symbol':
+        return token
       case '[': {
         const list = []
         while (true) {

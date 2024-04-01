@@ -17,7 +17,9 @@ const rtAssert = (cond, msg) => {
 import { isSymbol } from './lib.js'
 
 const assertSymbol = (form, msg) => {
-  const name = isSymbol(form)
+  const { tokenType, value } = form
+  ctAssert(tokenType === 'symbol', msg)
+  const name = isSymbol(value)
   ctAssert(name, msg)
   return name
 }
@@ -47,8 +49,8 @@ const getFromContext = (ctx, name) => {
 const getEnclosingLoopCtx = (ctx) => {
   while (ctx !== null) {
     const { bindingForm, outer } = ctx
-    const firstSymName = isSymbol(bindingForm[0])
-    if (firstSymName === 'loop') return ctx
+    const { tokenType, value } = bindingForm[0]
+    if (tokenType === 'symbol' && isSymbol(value) === 'loop') return ctx
     ctx = outer
   }
   return null
@@ -57,8 +59,10 @@ const getEnclosingLoopCtx = (ctx) => {
 export const makeCompiler = (funcCtx) => {
   const compile = (ast, ctx) => {
     if (isInt32(ast) || typeof ast === 'string') return () => ast
-    {
-      const symbolName = isSymbol(ast)
+    const { tokenType, value } = ast
+    if (tokenType === 'value') return () => value
+    if (tokenType === 'symbol') {
+      const symbolName = isSymbol(value)
       if (symbolName) {
         ctAssert(
           getFromContext(ctx, symbolName),
