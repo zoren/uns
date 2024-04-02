@@ -1,4 +1,4 @@
-import { isInt32, RuntimeError } from './lib.js'
+import { isInt32, RuntimeError, symbol } from './lib.js'
 
 export class CompileError extends Error {
   constructor(msg) {
@@ -18,8 +18,7 @@ import { isSymbol } from './lib.js'
 
 const assertSymbol = (form, msg) => {
   const { tokenType, value } = form
-  ctAssert(tokenType === 'symbol', msg)
-  const name = isSymbol(value)
+  const name = isSymbol(tokenType === 'symbol' ? value : form)
   ctAssert(name, msg)
   return name
 }
@@ -56,13 +55,44 @@ const getEnclosingLoopCtx = (ctx) => {
   return null
 }
 
+const formWithTokensToForm = (ast) => {
+  if (Array.isArray(ast)) return ast.map(formWithTokensToForm)
+  if (isSymbol(ast)) return ast
+  const { tokenType, value } = ast
+  ctAssert(tokenType, 'formWithTokensToForm: no tokenType')
+  if (tokenType === 'value' || tokenType === 'symbol') return value
+  console.error(ast)
+  throw new CompileError(
+    'formWithTokensToForm: unexpected token type: ' + tokenType,
+  )
+}
+
+const quasiquote = (ast) => {
+  if (isInt32(ast) || typeof ast === 'string') return ast
+  if (isSymbol(ast)) return [symbol('quote'), ast]
+  if (Array.isArray(ast)) {
+    if (ast.length === 0) return ast
+    const [first, ...rest] = ast
+    const symbolName = isSymbol(first)
+    if (symbolName === 'unquote') {
+      ctAssert(rest.length === 1, 'unquote must have 1 argument')
+      return rest[0]
+    }
+    const qqAst = ast.map(quasiquote)
+    return [symbol('list'), ...qqAst]
+  }
+
+  throw new CompileError('quasiquote: unexpected form: ' + ast)
+}
+
 export const makeCompiler = (funcCtx) => {
   const compile = (ast, ctx) => {
     if (isInt32(ast) || typeof ast === 'string') return () => ast
     const { tokenType, value } = ast
     if (tokenType === 'value') return () => value
-    if (tokenType === 'symbol') {
-      const symbolName = isSymbol(value)
+    {
+      const symbolName =
+        tokenType === 'symbol' ? isSymbol(value) : isSymbol(ast)
       if (symbolName) {
         ctAssert(
           getFromContext(ctx, symbolName),
@@ -98,39 +128,55 @@ export const makeCompiler = (funcCtx) => {
           return (econd !== 0 ? cthen : celse)(env, fenv)
         }
       }
-      case 'func': {
+      case 'func':
+      case 'macro': {
         ctAssert(rest.length >= 3, 'func must have at least 3 arguments')
         const fname = assertSymbol(rest[0], 'first argument must be a symbol')
         ctAssert(Array.isArray(rest[1]), 'second argument must be a list')
         const paramNames = rest[1].map((x) =>
           assertSymbol(x, 'parameters must be symbols'),
         )
-        funcCtx.set(fname, {
+        const fnCtx = {
           params: paramNames.map((pname) => {
             pname
           }),
-        })
+        }
+        funcCtx.set(fname, fnCtx)
         const bodyCtxVars = new Map()
         for (const name of paramNames) bodyCtxVars.set(name, { isParam: true })
         const bodyCtx = { vars: bodyCtxVars, outer: ctx, bindingForm: ast }
         const cbodies = rest.slice(2, -1).map((f) => compile(f, bodyCtx))
         const clastBody = compile(rest.at(-1), bodyCtx)
         const arity = paramNames.length
-        return (env, fenv) => {
+        const mkParamEnv = (args) => {
+          rtAssert(
+            args.length === arity,
+            `wrong number of arguments to ${firstName}: ${fname}`,
+          )
+          const varValues = new Map()
+          for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
+          return varValues
+        }
+        const func = (env, fenv) => {
           fenv.set(fname, (...args) => {
-            rtAssert(
-              args.length === arity,
-              'wrong number of arguments to function: ' + fname,
-            )
-            const varValues = new Map()
-            for (let i = 0; i < arity; i++)
-              varValues.set(paramNames[i], args[i])
-            const newEnv = { varValues, outer: env }
+            const newEnv = { varValues: mkParamEnv(args), outer: env }
             for (const cbody of cbodies) cbody(newEnv, fenv)
             return clastBody(newEnv, fenv)
           })
           return []
         }
+        if (firstName === 'macro') {
+          fnCtx.macroFunc = (env, fenv, ...args) => {
+            const newEnv = { varValues: mkParamEnv(args), outer: env }
+            for (const cbody of cbodies) cbody(newEnv, fenv)
+            return clastBody(newEnv, fenv)
+          }
+          // todo should we return here
+          return () => {
+            return []
+          }
+        }
+        return func
       }
       case 'let':
       case 'loop': {
@@ -206,14 +252,38 @@ export const makeCompiler = (funcCtx) => {
         return (env, fenv) =>
           new ContinueWrapper(cargs.map((c) => c(env, fenv)))
       }
+      case 'quote': {
+        ctAssert(rest.length === 1, 'quote must have 1 argument')
+        const [arg] = rest
+        const valueForm = formWithTokensToForm(arg)
+        return () => valueForm
+      }
+      case 'quasiquote': {
+        ctAssert(rest.length === 1, 'quasiquote must have 1 argument')
+        const [arg] = rest
+        const valueForm = formWithTokensToForm(arg)
+        // console.log('quasiquote', { arg, valueForm })
+        const quasiForm = quasiquote(valueForm)
+        return compile(quasiForm, ctx)
+      }
     } // end of special form switch
 
-    ctAssert(funcCtx.has(firstName), 'undefined function: ' + firstName)
-    const { params, variadic } = funcCtx.get(firstName)
+    ctAssert(funcCtx.has(firstName), 'undefined function/macro: ' + firstName)
+    const { params, variadic, macroFunc } = funcCtx.get(firstName)
     ctAssert(
       variadic || params.length === rest.length,
-      'wrong number of arguments to function: ' + firstName,
+      `wrong number of arguments to ${
+        macroFunc ? 'macro' : 'function'
+      }: ${firstName}`,
     )
+    if (macroFunc) {
+      const valueArgs = rest.map(formWithTokensToForm)
+      return (env, fenv) => {
+        const form = macroFunc(env, fenv, ...valueArgs)
+        const cform = compile(form, ctx)
+        return cform(env, fenv)
+      }
+    }
     const cargs = rest.map((a) => compile(a, ctx))
     return (env, funcEnv) => {
       const fn = funcEnv.get(firstName)

@@ -28,3 +28,23 @@
 [let [x 2] [let [y x] [add x y]]] ; => 4
 
 [loop [r 0 i 10] [if i [cont [add r i] [sub i 1]] r]] ; => 55
+
+[quote f] ; => f
+[quote 0] ; => 0
+[quote ''] ; => ''
+[quote []] ; => []
+[quote [1 2 3]] ; => [1 2 3]
+
+[macro add2 [x y] [add x y]] ; => []
+[add2 1 2] ; => 3
+[macro if2 [] [quote [if 4 3 2]]] ; => []
+[if2] ; => 3
+[macro unless [cond then else]
+     [quasiquote [if [unquote cond] [unquote else] [unquote then]]]] ; => []
+[unless 0 7 8] ; => 7
+
+[quasiquote f] ; => f
+[quasiquote 0] ; => 0
+[quasiquote ''] ; => ''
+[quasiquote []] ; => []
+[quasiquote [1 2 3]] ; => [1 2 3]
