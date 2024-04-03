@@ -37,12 +37,9 @@ class ContinueWrapper {
 
 const getFromContext = (ctx, name) => {
   if (ctx === null) return null
-  const { vars, outer } = ctx
-  if (!vars) {
-    console.error('no vars in context', ctx)
-  }
+  const { vars } = ctx
   if (vars.has(name)) return vars.get(name)
-  return getFromContext(outer, name)
+  return getFromContext(ctx.outer, name)
 }
 
 const getEnclosingLoopCtx = (ctx) => {
@@ -61,7 +58,6 @@ const formWithTokensToForm = (ast) => {
   const { tokenType, value } = ast
   ctAssert(tokenType, 'formWithTokensToForm: no tokenType')
   if (tokenType === 'value' || tokenType === 'symbol') return value
-  console.error(ast)
   throw new CompileError(
     'formWithTokensToForm: unexpected token type: ' + tokenType,
   )
@@ -121,10 +117,7 @@ export const makeCompiler = (funcCtx) => {
         const celse = compile(rest[2], ctx)
         return (env, fenv) => {
           const econd = ccond(env, fenv)
-          rtAssert(
-            isInt32(econd) && !isNaN(econd),
-            'condition must be a number',
-          )
+          rtAssert(isInt32(econd), 'condition must be a number')
           return (econd !== 0 ? cthen : celse)(env, fenv)
         }
       }
@@ -258,7 +251,6 @@ export const makeCompiler = (funcCtx) => {
         ctAssert(rest.length === 1, 'quasiquote must have 1 argument')
         const [arg] = rest
         const valueForm = formWithTokensToForm(arg)
-        // console.log('quasiquote', { arg, valueForm })
         const quasiForm = quasiquote(valueForm)
         return compile(quasiForm, ctx)
       }
