@@ -157,26 +157,22 @@ export const makeCompiler = (funcCtx) => {
           for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
           return varValues
         }
-        const func = (env, fenv) => {
-          fenv.set(fname, (...args) => {
-            const newEnv = { varValues: mkParamEnv(args), outer: env }
-            for (const cbody of cbodies) cbody(newEnv, fenv)
-            return clastBody(newEnv, fenv)
-          })
-          return []
+        const f = (env, fenv, args) => {
+          const newEnv = { varValues: mkParamEnv(args), outer: env }
+          for (const cbody of cbodies) cbody(newEnv, fenv)
+          return clastBody(newEnv, fenv)
         }
         if (firstName === 'macro') {
-          fnCtx.macroFunc = (env, fenv, ...args) => {
-            const newEnv = { varValues: mkParamEnv(args), outer: env }
-            for (const cbody of cbodies) cbody(newEnv, fenv)
-            return clastBody(newEnv, fenv)
-          }
+          fnCtx.macroFunc = (env, fenv, ...args) => f(env, fenv, args)
           // todo should we return here
           return () => {
             return []
           }
         }
-        return func
+        return (env, fenv) => {
+          fenv.set(fname, (...args) => f(env, fenv, args))
+          return []
+        }
       }
       case 'let':
       case 'loop': {
