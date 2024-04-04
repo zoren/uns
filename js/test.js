@@ -44,7 +44,6 @@ export const parseRelatedTest = () => {
 // const testContent = fs.readFileSync('./examples/test.uns', 'utf8')
 export const runFileTest = (testContent) => {
   const lexbox = makeLexBox(testContent)
-  console.log(testContent)
   const readForm = parse(lexbox)
   const funcEnv = makeFuncEnv()
   const funcCtx = makeFuncCtx()
