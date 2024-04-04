@@ -12,6 +12,7 @@ const isControlChar = (c) => {
 const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
 const makeLexer = (inputString) => {
+  assert(typeof inputString === 'string', 'inputString must be a string')
   let index = 0
   return () => {
     if (index >= inputString.length) return null
