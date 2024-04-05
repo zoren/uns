@@ -25,15 +25,17 @@ const getEnclosingLoopCtx = (ctx) => {
   return null
 }
 
+const rtAssert = (cond, msg) => {
+  if (!cond) throw new RuntimeError(msg)
+}
+
+class ContinueWrapper {
+  constructor(args) {
+    this.args = args
+  }
+}
+
 const evalData = (funMacEnv, macroCompiler) => {
-  const rtAssert = (cond, msg) => {
-    if (!cond) throw new RuntimeError(msg)
-  }
-  class ContinueWrapper {
-    constructor(args) {
-      this.args = args
-    }
-  }
   const evalD = (data, env) => {
     const { type } = data
     switch (type) {
@@ -79,30 +81,23 @@ const evalData = (funMacEnv, macroCompiler) => {
           const varValues = new Map()
           for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
           const newEnv = { varValues, outer: env }
-
-          // rtAssert(args.length === params.length, 'wrong number of arguments')
-          // for (let i = 0; i < params.length; i++) newEnv.set(params[i], args[i])
           for (const body of butLastBodies) evalD(body, newEnv)
           return evalD(lastBody, newEnv)
         }
         funMacEnv.set(fname, f)
         return []
       }
-      case 'let': {
-        const { bindings, butLastBodies, lastBody } = data
-        const varValues = new Map()
-        const newEnv = { varValues, outer: env }
-        for (const [name, cBindExpr] of bindings)
-          varValues.set(name, evalD(cBindExpr, newEnv))
-        for (const body of butLastBodies) evalD(body, newEnv)
-        return evalD(lastBody, newEnv)
-      }
+      case 'let':
       case 'loop': {
         const { bindings, butLastBodies, lastBody } = data
         const varValues = new Map()
         const newEnv = { varValues, outer: env }
         for (const [name, cBindExpr] of bindings)
           varValues.set(name, evalD(cBindExpr, newEnv))
+        if (type === 'let') {
+          for (const body of butLastBodies) evalD(body, newEnv)
+          return evalD(lastBody, newEnv)
+        }
         while (true) {
           for (const body of butLastBodies) evalD(body, newEnv)
           const result = evalD(lastBody, newEnv)
