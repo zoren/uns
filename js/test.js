@@ -29,7 +29,7 @@ export const parseRelatedTest = () => {
     const cform = compile(form)
     const eform = cform(funcEnv)
     const result = print(eform)
-    console.log(`${input} ; => ${result}`)
+    // console.log(`${input} ; => ${result}`)
     if (result !== expected) {
       console.log('expected', expected, 'got', result)
       numberOfFailures++

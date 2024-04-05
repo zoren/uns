@@ -9,6 +9,7 @@ export const makeReadEvalPrint = () => {
   const funcCtx = makeFuncCtx()
   const compile = makeCompiler(funcCtx)
   return (content, { log, error }) => {
+    assert(error, 'error must be provided')
     const lexBox = makeLexBox(content)
     const readForm = parse(lexBox)
     try {

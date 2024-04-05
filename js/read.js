@@ -45,6 +45,7 @@ const makeLexer = (inputString) => {
       case ']':
         return { tokenType: firstChar, startIndex }
       case `'`: {
+        // todo this allows chars greater than 127
         scan((c) => c !== "'" && !isControlChar(c))
         const text = inputString.slice(startIndex + 1, index)
         // should we skip over when it's a control char?
@@ -62,11 +63,13 @@ const makeLexer = (inputString) => {
     try {
       const bi = BigInt(text)
       assert(-0x80000000n <= bi && bi <= 0x7fffffffn, `number out of i32 range`)
+      // maybe only allow decimal numbers, and only allow leading zeroes for the number 0
+      // also maybe use bigint for the number we can bound check at compile time
       return {
         tokenType: 'value',
         text,
         startIndex,
-        value: Number(text),
+        value: Number(bi),
       }
     } catch (e) {
       if (!(e instanceof SyntaxError)) throw e
@@ -94,7 +97,7 @@ export const makeLexBox = (inputString) => {
   }
 }
 
-export const skipWhitespaceComments = ({ currentToken, next }) => {
+const skipWhitespaceComments = ({ currentToken, next }) => {
   do {
     const token = currentToken()
     if (token === null) return
