@@ -28,8 +28,7 @@ class ContinueWrapper {
   }
 }
 
-export const transData = () => {
-  let funMacResolve = null
+export const transData = (funMacResolve) => {
   const transD = (data) => {
     const { type } = data
     switch (type) {
@@ -115,11 +114,7 @@ export const transData = () => {
   return {
     transForm: (data) => {
       if (data.type === 'funmac') throw new Error('unexpected funmac')
-      const closure = transD(data)
-      return (givenGenv) => {
-        funMacResolve = givenGenv.funMacResolve
-        return closure(null)
-      }
+      return transD(data)(null)
     },
     transTopLevel: (data) => {
       if (data.type !== 'funmac') throw new Error('expected funmac')
@@ -127,19 +122,16 @@ export const transData = () => {
       const cbutLastBodies = butLastBodies.map(transD)
       const clastBody = transD(lastBody)
       const arity = paramNames.length
-      return (givenGenv) => {
-        funMacResolve = givenGenv.funMacResolve
-        return (...args) => {
-          rtAssert(
-            args.length === arity,
-            `wrong number of arguments to: ${fname}`,
-          )
-          const varValues = new Map()
-          for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
-          const newEnv = { varValues, outer: null }
-          for (const cbody of cbutLastBodies) cbody(newEnv)
-          return clastBody(newEnv)
-        }
+      return (...args) => {
+        rtAssert(
+          args.length === arity,
+          `wrong number of arguments to: ${fname}`,
+        )
+        const varValues = new Map()
+        for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
+        const newEnv = { varValues, outer: null }
+        for (const cbody of cbutLastBodies) cbody(newEnv)
+        return clastBody(newEnv)
       }
     },
   }

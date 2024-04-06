@@ -9,18 +9,15 @@ const makeEvaluator = () => {
 
   const funMacEnv = makeFuncEnv()
 
+  const funmacResolve = (name) => funMacEnv.get(name)
+
   const compileToData = makeToDataCompiler(
     (name) => funmacCtx.get(name),
-    (name) => funMacEnv.get(name),
+    funmacResolve,
   )
 
-  const genv = {
-    funMacResolve: (name) => {
-      const f = funMacEnv.get(name)
-      if (!f) throw new Error('undefined funmac: ' + name)
-      return f
-    },
-  }
+  const { transTopLevel, transForm } = transData(funmacResolve)
+
   return (form) => {
     const data = compileToData(form)
     const isFuncOrMacro = data.type === 'funmac'
@@ -33,15 +30,11 @@ const makeEvaluator = () => {
           pname
         }),
       })
-      const { transTopLevel } = transData()
-      const translated = transTopLevel(data)
-      let f = translated(genv)
+      const f = transTopLevel(data)
       funMacEnv.set(data.fname, f)
       return []
     }
-    const { transForm } = transData()
-    const translated = transForm(data)
-    return translated(genv)
+    return transForm(data)
   }
 }
 
