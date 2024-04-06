@@ -90,23 +90,24 @@ export const transData = () => {
           name,
           transD(bindform),
         ])
+        const makeEnv = (env) => {
+          const varValues = new Map()
+          const newEnv = { varValues, outer: env }
+          for (const [name, cbind] of cbindings)
+            varValues.set(name, cbind(newEnv))
+          return { newEnv, varValues }
+        }
         const cbutLastBodies = butLastBodies.map(transD)
         const clastBody = transD(lastBody)
         if (isLet) {
           return (env) => {
-            const varValues = new Map()
-            const newEnv = { varValues, outer: env }
-            for (const [name, cbind] of cbindings)
-              varValues.set(name, cbind(newEnv))
+            const { newEnv } = makeEnv(env)
             for (const cbody of cbutLastBodies) cbody(newEnv)
             return clastBody(newEnv)
           }
         }
         return (env) => {
-          const varValues = new Map()
-          const newEnv = { varValues, outer: env }
-          for (const [name, cbind] of cbindings)
-            varValues.set(name, cbind(newEnv))
+          const { varValues, newEnv } = makeEnv(env)
           while (true) {
             for (const cbody of cbutLastBodies) cbody(newEnv)
             const result = clastBody(newEnv)
