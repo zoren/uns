@@ -8,16 +8,6 @@ const pairwise = function* (arr) {
   }
 }
 
-const getEnclosingLoopCtx = (ctx) => {
-  while (ctx !== null) {
-    const { bindingForm, outer } = ctx
-    const { tokenType, value } = bindingForm[0]
-    if (tokenType === 'symbol' && isSymbol(value) === 'loop') return ctx
-    ctx = outer
-  }
-  return null
-}
-
 const rtAssert = (cond, msg) => {
   if (!cond) throw new RuntimeError(msg)
 }
@@ -234,7 +224,7 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
         )
         const bodyCtxVars = new Map()
         for (const name of paramNames) bodyCtxVars.set(name, { isParam: true })
-        const bodyCtx = { vars: bodyCtxVars, outer: ctx, bindingForm: ast }
+        const bodyCtx = { vars: bodyCtxVars, outer: ctx }
         const cbodies = rest.slice(2, -1).map((f) => compile(f, bodyCtx))
         const clastBody = compile(rest.at(-1), bodyCtx)
         return {
@@ -257,7 +247,7 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
         ctAssert(Array.isArray(bindings), 'second argument must be a list')
         ctAssert(bindings.length % 2 === 0, 'bindings must be of even length')
         const newCtxVars = new Map()
-        const newCtx = { vars: newCtxVars, outer: ctx, bindingForm: ast }
+        const newCtx = { vars: newCtxVars, outer: ctx }
 
         const cbindings = [...pairwise(bindings)].map(([binder, form]) => {
           const name = ctAssertSymbol(binder, 'key must be a symbol')
@@ -268,11 +258,9 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
         newCtx.bindings = cbindings
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
         const newCtxTail = {
-          vars: newCtxVars,
-          outer: ctx,
-          bindingForm: ast,
-          bindings: cbindings,
+          ...newCtx,
           isLoopTailPosition: isLet ? isLoopTailPosition : true,
+          isLet,
         }
         const lastBody = compile(bodies.at(-1), newCtxTail)
         return {
@@ -285,7 +273,12 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
       }
       case 'cont': {
         ctAssert(isLoopTailPosition, 'cont must be in loop tail position')
-        const loopCtx = getEnclosingLoopCtx(ctx)
+        let loopCtx = ctx
+        while (loopCtx !== null) {
+          const { isLet, outer } = loopCtx
+          if (isLet === false) break
+          loopCtx = outer
+        }
         ctAssert(loopCtx, 'cont must be inside a loop')
         const { bindings } = loopCtx
         ctAssert(
