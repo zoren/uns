@@ -48,3 +48,29 @@
 [quasiquote ''] ; => ''
 [quasiquote []] ; => []
 [quasiquote [1 2 3]] ; => [1 2 3]
+
+[func fib-loop [n]
+     [loop [a 0
+            b 1
+            i n]
+           [if i
+               [cont b [add a b] [sub i 1]]
+               a]]] ; => []
+
+[fib-loop 10] ; => 55
+[fib-loop 20] ; => 6765
+[fib-loop 30] ; => 832040
+[fib-loop 40] ; => 102334155
+[fib-loop 46] ; => 1836311903
+[fib-loop 47] ; => -1323752223
+
+[func patient-gauss [n]
+  [loop [i 0 r 0]
+    [if [lt i [inc n]]
+      [cont [inc i] [add i r]]
+      r]]]
+
+[patient-gauss 100] ; => 5050
+[patient-gauss 1000] ; => 500500
+[patient-gauss 10000] ; => 50005000
+[patient-gauss 65535] ; => 2147450880

@@ -1,5 +1,5 @@
 import { makeLexBox, parse } from './read.js'
-import { makeCompiler } from './compile.js'
+import { makeCompiler, formWithTokensToForm } from './compile.js'
 import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
 
@@ -71,9 +71,13 @@ export const runFileTest = (testContent) => {
       }
     }
     const cform = compile(form)
+    const now = performance.now()
     const eform = cform(funcEnv)
     const result = print(eform)
-
+    const elapsed = performance.now() - now
+    if (elapsed > 0.1) {
+      console.log(`${print(formWithTokensToForm(form))} elapsed ${elapsed}ms`)
+    }
     if (expecteds.length === 0) continue
     if (expecteds.length > 1) throw new Error('too many expecteds')
     const expected = expecteds[0]
