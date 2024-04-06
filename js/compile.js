@@ -219,7 +219,7 @@ export const transData = () => {
     },
     transTopLevel: (data) => {
       if (data.type !== 'funmac') throw new Error('expected funmac')
-      const { funmacType, fname, paramNames, butLastBodies, lastBody } = data
+      const { fname, paramNames, butLastBodies, lastBody } = data
       const cbutLastBodies = butLastBodies.map(transD)
       const clastBody = transD(lastBody)
       const arity = paramNames.length
@@ -229,7 +229,7 @@ export const transData = () => {
         return (...args) => {
           rtAssert(
             args.length === arity,
-            `wrong number of arguments to ${funmacType}: ${fname}`,
+            `wrong number of arguments to: ${fname}`,
           )
           const varValues = new Map()
           for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
@@ -333,13 +333,9 @@ export const makeToDataCompiler = (funcCtxResolve) => {
         const clastBody = compile(rest.at(-1), bodyCtx)
         return {
           type: 'funmac',
-          funmacType: firstName,
           isMacro: firstName === 'macro',
           fname,
           paramNames,
-          params: paramNames.map((pname) => {
-            pname
-          }),
           butLastBodies: cbodies,
           lastBody: clastBody,
         }

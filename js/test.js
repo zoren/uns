@@ -4,11 +4,8 @@ import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
 
 const makeEvaluator = () => {
-  const funcCtx = makeFuncCtx()
+  const funmacCtx = makeFuncCtx()
 
-  const funmacCtx = new Map()
-  for (const [name, funcObj] of funcCtx)
-    funmacCtx.set(name, { ...funcObj, funmacType: 'func' })
   const compileToData = makeToDataCompiler((name) => funmacCtx.get(name))
 
   const funMacEnv = makeFuncEnv()
@@ -36,8 +33,13 @@ const makeEvaluator = () => {
       },
     }
     if (isFuncOrMacro) {
-      const { fname } = data
-      funmacCtx.set(fname, data)
+      const { fname, isMacro, paramNames } = data
+      funmacCtx.set(fname, {
+        isMacro,
+        params: paramNames.map((pname) => {
+          pname
+        }),
+      })
       const translated = transTopLevel(data)
       let f = translated(genv)
       funMacEnv.set(data.fname, f)
