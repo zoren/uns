@@ -255,14 +255,14 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
           newCtxVars.set(name, { letOrLoop: firstName })
           return [name, cval]
         })
-        newCtx.bindings = cbindings
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
-        const newCtxTail = {
-          ...newCtx,
-          isLoopTailPosition: isLet ? isLoopTailPosition : true,
-          isLet,
+        if (isLet) {
+          newCtx.isLoopTailPosition = isLoopTailPosition
+        } else {
+          newCtx.isLoopTailPosition = true
+          newCtx.bindingCount = cbindings.length
         }
-        const lastBody = compile(bodies.at(-1), newCtxTail)
+        const lastBody = compile(bodies.at(-1), newCtx)
         return {
           type: 'let-loop',
           isLet,
@@ -275,18 +275,15 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
         ctAssert(isLoopTailPosition, 'cont must be in loop tail position')
         let loopCtx = ctx
         while (loopCtx !== null) {
-          const { isLet, outer } = loopCtx
-          if (isLet === false) break
-          loopCtx = outer
+          if ('bindingCount' in loopCtx) break
+          loopCtx = loopCtx.outer
         }
         ctAssert(loopCtx, 'cont must be inside a loop')
-        const { bindings } = loopCtx
         ctAssert(
-          bindings.length === rest.length,
+          loopCtx.bindingCount === rest.length,
           'wrong number of arguments to cont',
         )
-        const args = rest.map((a) => compile(a, ctx))
-        return { type: 'continue', args }
+        return { type: 'continue', args: rest.map((a) => compile(a, ctx)) }
       }
       case 'quote': {
         ctAssert(rest.length === 1, 'quote must have 1 argument')
