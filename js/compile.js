@@ -8,13 +8,6 @@ const pairwise = function* (arr) {
   }
 }
 
-const getFromContext = (ctx, name) => {
-  if (ctx === null) return null
-  const { vars } = ctx
-  if (vars.has(name)) return vars.get(name)
-  return getFromContext(ctx.outer, name)
-}
-
 const getEnclosingLoopCtx = (ctx) => {
   while (ctx !== null) {
     const { bindingForm, outer } = ctx
@@ -37,7 +30,6 @@ class ContinueWrapper {
 
 export const transData = () => {
   let funMacResolve = null
-  let macroCompiler = null
   const transD = (data) => {
     const { type } = data
     switch (type) {
@@ -66,17 +58,7 @@ export const transData = () => {
         }
       }
       case 'call': {
-        const { name, isMacroCall, args } = data
-        if (isMacroCall) {
-          return (env) => {
-            const funmac = funMacResolve(name)
-            rtAssert(funmac, 'undefined macro: ' + name)
-            const res = funmac(...args)
-            const compiledRes = macroCompiler(res)
-            const evaledRes = transD(compiledRes)
-            return evaledRes(env)
-          }
-        }
+        const { name, args } = data
         const cargs = args.map(transD)
         return (env) => {
           const funmac = funMacResolve(name)
@@ -136,7 +118,6 @@ export const transData = () => {
       const closure = transD(data)
       return (givenGenv) => {
         funMacResolve = givenGenv.funMacResolve
-        macroCompiler = givenGenv.macroCompiler
         return closure(null)
       }
     },
@@ -148,7 +129,6 @@ export const transData = () => {
       const arity = paramNames.length
       return (givenGenv) => {
         funMacResolve = givenGenv.funMacResolve
-        macroCompiler = givenGenv.macroCompiler
         return (...args) => {
           rtAssert(
             args.length === arity,
@@ -173,6 +153,17 @@ export class CompileError extends Error {
 
 const ctAssert = (cond, msg) => {
   if (!cond) throw new CompileError(msg)
+}
+
+const getFromContext = (ctx, name) => {
+  if (ctx === null) return null
+  const { vars } = ctx
+  if (!vars) {
+    console.dir(ctx, { depth: 10 })
+  }
+  ctAssert(vars, 'no vars in context: ' + name)
+  if (vars.has(name)) return vars.get(name)
+  return getFromContext(ctx.outer, name)
 }
 
 const ctAssertSymbol = (form, msg) => {
@@ -208,7 +199,7 @@ const quasiquote = (ast) => {
   return [symbol('list'), ...qqAst]
 }
 
-export const makeToDataCompiler = (funcCtxResolve) => {
+export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
   const compile = (ast, ctx) => {
     if (isInt32(ast) || typeof ast === 'string')
       return { type: 'value', value: ast }
@@ -285,7 +276,10 @@ export const makeToDataCompiler = (funcCtxResolve) => {
         newCtx.bindings = cbindings
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
         const newCtxTail = {
-          ...newCtx,
+          vars: newCtxVars,
+          outer: ctx,
+          bindingForm: ast,
+          bindings: cbindings,
           isLoopTailPosition: isLet ? isLoopTailPosition : true,
         }
         const lastBody = compile(bodies.at(-1), newCtxTail)
@@ -331,16 +325,21 @@ export const makeToDataCompiler = (funcCtxResolve) => {
       variadic || params.length === rest.length,
       `wrong number of arguments to: ${firstName}`,
     )
-    if (isMacro)
-      return {
-        type: 'call',
-        isMacroCall: true,
-        name: firstName,
-        args: rest.map(formWithTokensToForm),
+    if (isMacro) {
+      const macFun = macroRuntimeResolve(firstName)
+      ctAssert(macFun, 'undefined runtime macro: ' + firstName)
+      const argForms = rest.map(formWithTokensToForm)
+      try {
+        const form = macFun(...argForms)
+        return compile(form, ctx)
+      } catch (e) {
+        if (e instanceof RuntimeError)
+          throw new CompileError('macro runtime error: ' + e.message)
+        throw e
       }
+    }
     return {
       type: 'call',
-      isMacroCall: false,
       name: firstName,
       args: rest.map((a) => compile(a, ctx)),
     }

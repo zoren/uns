@@ -1,38 +1,31 @@
 import { makeLexBox, parse } from './read.js'
-import { makeToDataCompiler, transData } from './compile.js'
+import { RuntimeError } from './lib.js'
+import { makeToDataCompiler, transData, CompileError } from './compile.js'
 import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
 
 const makeEvaluator = () => {
   const funmacCtx = makeFuncCtx()
 
-  const compileToData = makeToDataCompiler((name) => funmacCtx.get(name))
-
   const funMacEnv = makeFuncEnv()
 
+  const compileToData = makeToDataCompiler(
+    (name) => funmacCtx.get(name),
+    (name) => funMacEnv.get(name),
+  )
+
+  const genv = {
+    funMacResolve: (name) => {
+      const f = funMacEnv.get(name)
+      if (!f) throw new Error('undefined funmac: ' + name)
+      return f
+    },
+  }
   return (form) => {
     const data = compileToData(form)
     const isFuncOrMacro = data.type === 'funmac'
-    const { transTopLevel, transForm } = transData()
-    const genv = {
-      funMacResolve: (name) => {
-        const f = funMacEnv.get(name)
-        if (!f) throw new Error('undefined funmac: ' + name)
-        return f
-      },
-      macroCompiler: (astFromMacro) => {
-        try {
-          return compileToData(astFromMacro)
-        } catch (e) {
-          if (e instanceof CompileError)
-            throw new RuntimeError(
-              'macro compile error at runtime: ' + e.message,
-            )
-          throw e
-        }
-      },
-    }
     if (isFuncOrMacro) {
+      // could make recursive by extracting fname, isMacro and paramNames from from form and binding before compiling
       const { fname, isMacro, paramNames } = data
       funmacCtx.set(fname, {
         isMacro,
@@ -40,11 +33,13 @@ const makeEvaluator = () => {
           pname
         }),
       })
+      const { transTopLevel } = transData()
       const translated = transTopLevel(data)
       let f = translated(genv)
       funMacEnv.set(data.fname, f)
       return []
     }
+    const { transForm } = transData()
     const translated = transForm(data)
     return translated(genv)
   }
@@ -111,15 +106,16 @@ export const runFileTest = (testContent) => {
       }
     }
 
-    const cres = evaluator(form)
-    // const cform = compile(form)
     // const now = performance.now()
-    // const eform = cform(funcEnv)
-    const result = print(cres)
+
+    const cres = evaluator(form)
+
     // const elapsed = performance.now() - now
     // if (elapsed > 0.1) {
     //   console.log(`${print(formWithTokensToForm(form))} elapsed ${elapsed}ms`)
     // }
+    const result = print(cres)
+
     if (expecteds.length === 0) continue
     if (expecteds.length > 1) throw new Error('too many expecteds')
     const expected = expecteds[0]

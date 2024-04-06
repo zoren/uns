@@ -22,6 +22,8 @@
 [func inc [x] [add x 1]] ; => []
 [inc 1] ; => 2
 
+[func dec [x] [sub x 1]] ; => []
+
 [func inc-inc [x] [inc [inc x]]] ; => []
 [inc-inc 1] ; => 3
 
@@ -42,15 +44,18 @@
 [add2 1 2] ; => 3
 [macro if2 [] [quote [if 4 3 2]]] ; => []
 [if2] ; => 3
-[macro unless [cond then else]
-     [quasiquote [if [unquote cond] [unquote else] [unquote then]]]] ; => []
-[unless 0 7 8] ; => 7
 
 [quasiquote f] ; => f
 [quasiquote 0] ; => 0
 [quasiquote ''] ; => ''
 [quasiquote []] ; => []
 [quasiquote [1 2 3]] ; => [1 2 3]
+[quasiquote [if [unquote 1]]] ; => [if 1]
+[let [i 1] [quasiquote [if [unquote i] 2 3]]] ; => [if 1 2 3]
+
+[macro unless [cond then else]
+     [quasiquote [if [unquote cond] [unquote else] [unquote then]]]] ; => []
+[unless 0 7 8] ; => 7
 
 [func fib-loop [n]
      [loop [a 0
@@ -77,3 +82,10 @@
 [patient-gauss 1000] ; => 500500
 [patient-gauss 10000] ; => 50005000
 [patient-gauss 65535] ; => 2147450880
+
+[let [i 0] [if 1 2 i]] ; => 2
+
+[let [i 0] [unless 1 i 2]]
+[macro unless-unless [cond then else]
+     [unless cond then else]] ; => []
+[unless-unless 0 7 8] ; => 7
