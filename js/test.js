@@ -9,7 +9,7 @@ const makeEvaluator = () => {
   const funmacCtx = new Map()
   for (const [name, funcObj] of funcCtx)
     funmacCtx.set(name, { ...funcObj, funmacType: 'func' })
-  const compileToData = makeToDataCompiler(funmacCtx)
+  const compileToData = makeToDataCompiler((name) => funmacCtx.get(name))
 
   const funMacEnv = makeFuncEnv()
 
@@ -36,6 +36,8 @@ const makeEvaluator = () => {
       },
     }
     if (isFuncOrMacro) {
+      const { fname } = data
+      funmacCtx.set(fname, data)
       const translated = transTopLevel(data)
       let f = translated(genv)
       funMacEnv.set(data.fname, f)

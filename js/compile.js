@@ -285,7 +285,7 @@ const quasiquote = (ast) => {
   return [symbol('list'), ...qqAst]
 }
 
-export const makeToDataCompiler = (funcCtx) => {
+export const makeToDataCompiler = (funcCtxResolve) => {
   const compile = (ast, ctx) => {
     if (isInt32(ast) || typeof ast === 'string')
       return { type: 'value', value: ast }
@@ -326,13 +326,6 @@ export const makeToDataCompiler = (funcCtx) => {
         const paramNames = rest[1].map((x) =>
           ctAssertSymbol(x, 'parameters must be symbols'),
         )
-        const fnCtx = {
-          params: paramNames.map((pname) => {
-            pname
-          }),
-          funmacType: firstName,
-        }
-        funcCtx.set(fname, fnCtx)
         const bodyCtxVars = new Map()
         for (const name of paramNames) bodyCtxVars.set(name, { isParam: true })
         const bodyCtx = { vars: bodyCtxVars, outer: ctx, bindingForm: ast }
@@ -344,6 +337,9 @@ export const makeToDataCompiler = (funcCtx) => {
           isMacro: firstName === 'macro',
           fname,
           paramNames,
+          params: paramNames.map((pname) => {
+            pname
+          }),
           butLastBodies: cbodies,
           lastBody: clastBody,
         }
@@ -409,20 +405,20 @@ export const makeToDataCompiler = (funcCtx) => {
       }
     } // end of special form switch
 
-    ctAssert(funcCtx.has(firstName), 'undefined function/macro: ' + firstName)
-    const { params, variadic, funmacType } = funcCtx.get(firstName)
+    const fnctx = funcCtxResolve(firstName)
+    ctAssert(fnctx, 'undefined function/macro: ' + firstName)
+    const { params, variadic, isMacro } = fnctx
     ctAssert(
       variadic || params.length === rest.length,
-      `wrong number of arguments to ${funmacType}: ${firstName}`,
+      `wrong number of arguments to: ${firstName}`,
     )
-    if (funmacType === 'macro')
+    if (isMacro)
       return {
         type: 'call',
         isMacroCall: true,
         name: firstName,
         args: rest.map(formWithTokensToForm),
       }
-    ctAssert(funmacType === 'func', 'unexpected type')
     return {
       type: 'call',
       isMacroCall: false,
@@ -431,51 +427,4 @@ export const makeToDataCompiler = (funcCtx) => {
     }
   }
   return (ast) => compile(ast, null)
-}
-
-const makeCompiler = (funcCtx) => {
-  const funmacCtx = new Map()
-  for (const [name, funcObj] of funcCtx)
-    funmacCtx.set(name, { ...funcObj, funmacType: 'func' })
-  const compileToData = makeToDataCompiler(funmacCtx)
-  const compileMacro = (astFromMacro) => {
-    try {
-      return compileToData(astFromMacro)
-    } catch (e) {
-      if (e instanceof CompileError)
-        throw new RuntimeError('macro compile error at runtime: ' + e.message)
-      throw e
-    }
-  }
-  return (ast) => {
-    const data = compileToData(ast)
-    const isFuncOrMacro = data.type === 'funmac'
-    const translated = transData(data)
-    return (funMacEnv) => {
-      const getMacro = (name) => {
-        const f = funMacEnv.get(name)
-
-        return f
-      }
-
-      // return eres
-      // const compFunMacEnv = new Map(funMacEnv)
-      const cres = translated({
-        funMacResolve: (name) => {
-          const f = funMacEnv.get(name)
-          rtAssert(f, 'undefined funmac: ' + name)
-          return f
-        },
-        macroCompiler: compileMacro,
-      })
-      // const evalFunMacEnv = new Map(funMacEnv)
-      // const unsEvaluator = evalData(evalFunMacEnv, compileMacro)
-      // const eres = unsEvaluator(data, new Map())
-      // if (JSON.stringify(cres) !== JSON.stringify(eres)) {
-      //   console.log('expected', eres, 'got', cres)
-      //   throw new Error('compile error: expected ' + eres + ' got ' + cres)
-      // }
-      return cres
-    }
-  }
 }
