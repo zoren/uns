@@ -56,19 +56,14 @@ const evalData = (funMacEnv, macroCompiler) => {
         return evalD(econd === 0 ? data.else : data.then, env)
       }
       case 'call': {
-        const { name, callType, args } = data
+        const { name, isMacroCall, args } = data
         const funmac = funMacEnv.get(name)
         rtAssert(funmac, 'undefined funmac: ' + name)
-        switch (callType) {
-          case 'func':
-            return funmac(...args.map((a) => evalD(a, env)))
-          case 'macro':
-            const res = funmac(...args)
-            const compiledRes = macroCompiler(res)
-            const evaledRes = evalD(compiledRes, env)
-            return evaledRes
-        }
-        throw new RuntimeError('unexpected funmacType: ' + callType)
+        if (!isMacroCall) return funmac(...args.map((a) => evalD(a, env)))
+        const res = funmac(...args)
+        const compiledRes = macroCompiler(res)
+        const evaledRes = evalD(compiledRes, env)
+        return evaledRes
       }
       case 'funmac': {
         const { funmacType, fname, paramNames, butLastBodies, lastBody } = data
@@ -87,14 +82,13 @@ const evalData = (funMacEnv, macroCompiler) => {
         funMacEnv.set(fname, f)
         return []
       }
-      case 'let':
-      case 'loop': {
-        const { bindings, butLastBodies, lastBody } = data
+      case 'let-loop': {
+        const { isLet, bindings, butLastBodies, lastBody } = data
         const varValues = new Map()
         const newEnv = { varValues, outer: env }
         for (const [name, cBindExpr] of bindings)
           varValues.set(name, evalD(cBindExpr, newEnv))
-        if (type === 'let') {
+        if (isLet) {
           for (const body of butLastBodies) evalD(body, newEnv)
           return evalD(lastBody, newEnv)
         }
@@ -150,28 +144,23 @@ const transDataToClosure = (outerData) => {
         }
       }
       case 'call': {
-        const { name, callType, args } = data
-        switch (callType) {
-          case 'func': {
-            const cargs = args.map(transD)
-            return (env) => {
-              const funmac = funMacEnv.get(name)
-              rtAssert(funmac, 'undefined func: ' + name)
-              return funmac(...cargs.map((c) => c(env)))
-            }
-          }
-          case 'macro': {
-            return (env) => {
-              const funmac = funMacEnv.get(name)
-              rtAssert(funmac, 'undefined macro: ' + name)
-              const res = funmac(...args)
-              const compiledRes = macroCompiler(res)
-              const evaledRes = transD(compiledRes)
-              return evaledRes(env)
-            }
+        const { name, isMacroCall, args } = data
+        if (isMacroCall) {
+          return (env) => {
+            const funmac = funMacEnv.get(name)
+            rtAssert(funmac, 'undefined macro: ' + name)
+            const res = funmac(...args)
+            const compiledRes = macroCompiler(res)
+            const evaledRes = transD(compiledRes)
+            return evaledRes(env)
           }
         }
-        throw new RuntimeError('unexpected funmacType: ' + callType)
+        const cargs = args.map(transD)
+        return (env) => {
+          const funmac = funMacEnv.get(name)
+          rtAssert(funmac, 'undefined func: ' + name)
+          return funmac(...cargs.map((c) => c(env)))
+        }
       }
       case 'funmac': {
         const { funmacType, fname, paramNames, butLastBodies, lastBody } = data
@@ -195,16 +184,15 @@ const transDataToClosure = (outerData) => {
           return []
         }
       }
-      case 'let':
-      case 'loop': {
-        const { bindings, butLastBodies, lastBody } = data
+      case 'let-loop': {
+        const { isLet, bindings, butLastBodies, lastBody } = data
         const cbindings = bindings.map(([name, bindform]) => [
           name,
           transD(bindform),
         ])
         const cbutLastBodies = butLastBodies.map(transD)
         const clastBody = transD(lastBody)
-        if (type === 'let') {
+        if (isLet) {
           return (env) => {
             const varValues = new Map()
             const newEnv = { varValues, outer: env }
@@ -347,6 +335,7 @@ const makeToDataCompiler = (funcCtx) => {
         return {
           type: 'funmac',
           funmacType: firstName,
+          isMacro: firstName === 'macro',
           fname,
           paramNames,
           butLastBodies: cbodies,
@@ -359,6 +348,7 @@ const makeToDataCompiler = (funcCtx) => {
           rest.length >= 2,
           firstName + ' must have at least 2 arguments',
         )
+        const isLet = firstName === 'let'
         const [bindings, ...bodies] = rest
         ctAssert(Array.isArray(bindings), 'second argument must be a list')
         ctAssert(bindings.length % 2 === 0, 'bindings must be of even length')
@@ -375,11 +365,12 @@ const makeToDataCompiler = (funcCtx) => {
         const butLastBodies = bodies.slice(0, -1).map((b) => compile(b, newCtx))
         const newCtxTail = {
           ...newCtx,
-          isLoopTailPosition: firstName === 'let' ? isLoopTailPosition : true,
+          isLoopTailPosition: isLet ? isLoopTailPosition : true,
         }
         const lastBody = compile(bodies.at(-1), newCtxTail)
         return {
-          type: firstName,
+          type: 'let-loop',
+          isLet,
           bindings: cbindings,
           butLastBodies,
           lastBody,
@@ -421,14 +412,14 @@ const makeToDataCompiler = (funcCtx) => {
     if (funmacType === 'macro')
       return {
         type: 'call',
-        callType: funmacType,
+        isMacroCall: true,
         name: firstName,
         args: rest.map(formWithTokensToForm),
       }
     ctAssert(funmacType === 'func', 'unexpected type')
     return {
       type: 'call',
-      callType: funmacType,
+      isMacroCall: false,
       name: firstName,
       args: rest.map((a) => compile(a, ctx)),
     }
@@ -454,22 +445,18 @@ export const makeCompiler = (funcCtx) => {
     const ctx = null
     const data = compileToData(ast, ctx)
     const translated = transDataToClosure(data)
-    // const translator = new Translator(compileMacro)
-    // const closure = translator.transD(data)
     return (funMacEnv) => {
-      // const unsEvaluator = evalData(funMacEnv, compileMacro)
-      // translator.funMacEnv = funMacEnv
-
-      // const eres = unsEvaluator(data, new Map())
-      // if (JSON.stringify(cres) !== JSON.stringify(eres)) {
-      //   console.log('expected', eres, 'got', cres)
-      //   throw new Error('compile error: expected ' + eres + ' got ' + cres)
-      // }
+      const unsEvaluator = evalData(funMacEnv, compileMacro)
+      const eres = unsEvaluator(data, new Map())
       // return eres
       const cres = translated({
         funMacEnv: funMacEnv,
         macroCompiler: compileMacro,
       })
+      if (JSON.stringify(cres) !== JSON.stringify(eres)) {
+        console.log('expected', eres, 'got', cres)
+        throw new Error('compile error: expected ' + eres + ' got ' + cres)
+      }
       return cres
     }
   }
