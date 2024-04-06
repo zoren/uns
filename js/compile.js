@@ -119,123 +119,134 @@ const evalData = (funMacEnv, macroCompiler) => {
   return evalD
 }
 
-export const transD = (data) => {
-  const { type } = data
-  switch (type) {
-    case 'value': {
-      const { value } = data
-      return () => value
-    }
-    case 'symbol': {
-      const { name } = data
-      return (env) => {
-        while (true) {
-          rtAssert(env !== null, 'undefined symbol: ' + name)
-          const { varValues, outer } = env
-          if (varValues.has(name)) return varValues.get(name)
-          env = outer
-        }
+const transDataToClosure = (outerData) => {
+  let funMacEnv = null
+  let macroCompiler = null
+  const transD = (data) => {
+    const { type } = data
+    switch (type) {
+      case 'value': {
+        const { value } = data
+        return () => value
       }
-    }
-    case 'if': {
-      const { cond, then, else: elseData } = data
-      const [ccond, cthen, celse] = [cond, then, elseData].map(transD)
-      return (env, genv) => {
-        const econd = ccond(env, genv)
-        rtAssert(isInt32(econd), 'condition must be a number')
-        return econd === 0 ? celse(env, genv) : cthen(env, genv)
-      }
-    }
-    case 'call': {
-      const { name, callType, args } = data
-      switch (callType) {
-        case 'func': {
-          const cargs = args.map(transD)
-          return (env, genv) => {
-            const funmac = genv.funMacEnv.get(name)
-            rtAssert(funmac, 'undefined func: ' + name)
-            return funmac(...cargs.map((c) => c(env, genv)))
-          }
-        }
-        case 'macro': {
-          return (env, genv) => {
-            const funmac = genv.funMacEnv.get(name)
-            rtAssert(funmac, 'undefined macro: ' + name)
-            const res = funmac(...args)
-            const compiledRes = genv.macroCompiler(res)
-            const evaledRes = transD(compiledRes)
-            return evaledRes(env, genv)
+      case 'symbol': {
+        const { name } = data
+        return (env) => {
+          while (true) {
+            rtAssert(env !== null, 'undefined symbol: ' + name)
+            const { varValues, outer } = env
+            if (varValues.has(name)) return varValues.get(name)
+            env = outer
           }
         }
       }
-      throw new RuntimeError('unexpected funmacType: ' + callType)
-    }
-    case 'funmac': {
-      const { funmacType, fname, paramNames, butLastBodies, lastBody } = data
-      const cbutLastBodies = butLastBodies.map(transD)
-      const clastBody = transD(lastBody)
-      const arity = paramNames.length
-      return (env, genv) => {
-        const f = (...args) => {
-          rtAssert(
-            args.length === arity,
-            `wrong number of arguments to ${funmacType}: ${fname}`,
-          )
-          const varValues = new Map()
-          for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
-          const newEnv = { varValues, outer: env }
-          for (const cbody of cbutLastBodies) cbody(newEnv, genv)
-          return clastBody(newEnv, genv)
+      case 'if': {
+        const { cond, then, else: elseData } = data
+        const [ccond, cthen, celse] = [cond, then, elseData].map(transD)
+        return (env) => {
+          const econd = ccond(env)
+          rtAssert(isInt32(econd), 'condition must be a number')
+          return econd === 0 ? celse(env) : cthen(env)
         }
-        genv.funMacEnv.set(fname, f)
-        return []
       }
-    }
-    case 'let':
-    case 'loop': {
-      const { bindings, butLastBodies, lastBody } = data
-      const cbindings = bindings.map(([name, bindform]) => [
-        name,
-        transD(bindform),
-      ])
-      const cbutLastBodies = butLastBodies.map(transD)
-      const clastBody = transD(lastBody)
-      if (type === 'let') {
-        return (env, genv) => {
+      case 'call': {
+        const { name, callType, args } = data
+        switch (callType) {
+          case 'func': {
+            const cargs = args.map(transD)
+            return (env) => {
+              const funmac = funMacEnv.get(name)
+              rtAssert(funmac, 'undefined func: ' + name)
+              return funmac(...cargs.map((c) => c(env)))
+            }
+          }
+          case 'macro': {
+            return (env) => {
+              const funmac = funMacEnv.get(name)
+              rtAssert(funmac, 'undefined macro: ' + name)
+              const res = funmac(...args)
+              const compiledRes = macroCompiler(res)
+              const evaledRes = transD(compiledRes)
+              return evaledRes(env)
+            }
+          }
+        }
+        throw new RuntimeError('unexpected funmacType: ' + callType)
+      }
+      case 'funmac': {
+        const { funmacType, fname, paramNames, butLastBodies, lastBody } = data
+        const cbutLastBodies = butLastBodies.map(transD)
+        const clastBody = transD(lastBody)
+        const arity = paramNames.length
+        return (env) => {
+          const f = (...args) => {
+            rtAssert(
+              args.length === arity,
+              `wrong number of arguments to ${funmacType}: ${fname}`,
+            )
+            const varValues = new Map()
+            for (let i = 0; i < arity; i++)
+              varValues.set(paramNames[i], args[i])
+            const newEnv = { varValues, outer: env }
+            for (const cbody of cbutLastBodies) cbody(newEnv)
+            return clastBody(newEnv)
+          }
+          funMacEnv.set(fname, f)
+          return []
+        }
+      }
+      case 'let':
+      case 'loop': {
+        const { bindings, butLastBodies, lastBody } = data
+        const cbindings = bindings.map(([name, bindform]) => [
+          name,
+          transD(bindform),
+        ])
+        const cbutLastBodies = butLastBodies.map(transD)
+        const clastBody = transD(lastBody)
+        if (type === 'let') {
+          return (env) => {
+            const varValues = new Map()
+            const newEnv = { varValues, outer: env }
+            for (const [name, cbind] of cbindings)
+              varValues.set(name, cbind(newEnv))
+            for (const cbody of cbutLastBodies) cbody(newEnv)
+            return clastBody(newEnv)
+          }
+        }
+        return (env) => {
           const varValues = new Map()
           const newEnv = { varValues, outer: env }
           for (const [name, cbind] of cbindings)
-            varValues.set(name, cbind(newEnv, genv))
-          for (const cbody of cbutLastBodies) cbody(newEnv, genv)
-          return clastBody(newEnv, genv)
+            varValues.set(name, cbind(newEnv))
+          while (true) {
+            for (const cbody of cbutLastBodies) cbody(newEnv)
+            const result = clastBody(newEnv)
+            if (!(result instanceof ContinueWrapper)) return result
+            const { args } = result
+            rtAssert(
+              bindings.length === args.length,
+              'wrong number of loop arguments',
+            )
+            for (let i = 0; i < bindings.length; i++)
+              varValues.set(bindings[i][0], args[i])
+          }
         }
       }
-      return (env, genv) => {
-        const varValues = new Map()
-        const newEnv = { varValues, outer: env }
-        for (const [name, cbind] of cbindings)
-          varValues.set(name, cbind(newEnv, genv))
-        while (true) {
-          for (const cbody of cbutLastBodies) cbody(newEnv, genv)
-          const result = clastBody(newEnv, genv)
-          if (!(result instanceof ContinueWrapper)) return result
-          const { args } = result
-          rtAssert(
-            bindings.length === args.length,
-            'wrong number of loop arguments',
-          )
-          for (let i = 0; i < bindings.length; i++)
-            varValues.set(bindings[i][0], args[i])
-        }
+      case 'continue': {
+        const cargs = data.args.map(transD)
+        return (env) => new ContinueWrapper(cargs.map((ca) => ca(env)))
       }
     }
-    case 'continue': {
-      const cargs = data.args.map(transD)
-      return (env, genv) =>
-        new ContinueWrapper(cargs.map((ca) => ca(env, genv)))
-    }
+    throw new RuntimeError('transFunc: unexpected data type: ' + type)
   }
-  throw new RuntimeError('transFunc: unexpected data type: ' + type)
+  const closure = transD(outerData)
+
+  return (givenGenv) => {
+    funMacEnv = givenGenv.funMacEnv
+    macroCompiler = givenGenv.macroCompiler
+    return closure(null)
+  }
 }
 
 export class CompileError extends Error {
@@ -442,7 +453,7 @@ export const makeCompiler = (funcCtx) => {
   return (ast) => {
     const ctx = null
     const data = compileToData(ast, ctx)
-    const translated = transD(data)
+    const translated = transDataToClosure(data)
     // const translator = new Translator(compileMacro)
     // const closure = translator.transD(data)
     return (funMacEnv) => {
@@ -455,7 +466,7 @@ export const makeCompiler = (funcCtx) => {
       //   throw new Error('compile error: expected ' + eres + ' got ' + cres)
       // }
       // return eres
-      const cres = translated(null, {
+      const cres = translated({
         funMacEnv: funMacEnv,
         macroCompiler: compileMacro,
       })
