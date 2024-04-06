@@ -113,8 +113,8 @@ const evalData = (funMacEnv, macroCompiler) => {
   return evalD
 }
 
-const transDataToClosure = (outerData) => {
-  let funMacEnv = null
+export const transData = () => {
+  let funMacResolve = null
   let macroCompiler = null
   const transD = (data) => {
     const { type } = data
@@ -147,7 +147,7 @@ const transDataToClosure = (outerData) => {
         const { name, isMacroCall, args } = data
         if (isMacroCall) {
           return (env) => {
-            const funmac = funMacEnv.get(name)
+            const funmac = funMacResolve(name)
             rtAssert(funmac, 'undefined macro: ' + name)
             const res = funmac(...args)
             const compiledRes = macroCompiler(res)
@@ -157,31 +157,9 @@ const transDataToClosure = (outerData) => {
         }
         const cargs = args.map(transD)
         return (env) => {
-          const funmac = funMacEnv.get(name)
+          const funmac = funMacResolve(name)
           rtAssert(funmac, 'undefined func: ' + name)
           return funmac(...cargs.map((c) => c(env)))
-        }
-      }
-      case 'funmac': {
-        const { funmacType, fname, paramNames, butLastBodies, lastBody } = data
-        const cbutLastBodies = butLastBodies.map(transD)
-        const clastBody = transD(lastBody)
-        const arity = paramNames.length
-        return (env) => {
-          const f = (...args) => {
-            rtAssert(
-              args.length === arity,
-              `wrong number of arguments to ${funmacType}: ${fname}`,
-            )
-            const varValues = new Map()
-            for (let i = 0; i < arity; i++)
-              varValues.set(paramNames[i], args[i])
-            const newEnv = { varValues, outer: env }
-            for (const cbody of cbutLastBodies) cbody(newEnv)
-            return clastBody(newEnv)
-          }
-          funMacEnv.set(fname, f)
-          return []
         }
       }
       case 'let-loop': {
@@ -228,12 +206,39 @@ const transDataToClosure = (outerData) => {
     }
     throw new RuntimeError('transFunc: unexpected data type: ' + type)
   }
-  const closure = transD(outerData)
 
-  return (givenGenv) => {
-    funMacEnv = givenGenv.funMacEnv
-    macroCompiler = givenGenv.macroCompiler
-    return closure(null)
+  return {
+    transForm: (data) => {
+      if (data.type === 'funmac') throw new Error('unexpected funmac')
+      const closure = transD(data)
+      return (givenGenv) => {
+        funMacResolve = givenGenv.funMacResolve
+        macroCompiler = givenGenv.macroCompiler
+        return closure(null)
+      }
+    },
+    transTopLevel: (data) => {
+      if (data.type !== 'funmac') throw new Error('expected funmac')
+      const { funmacType, fname, paramNames, butLastBodies, lastBody } = data
+      const cbutLastBodies = butLastBodies.map(transD)
+      const clastBody = transD(lastBody)
+      const arity = paramNames.length
+      return (givenGenv) => {
+        funMacResolve = givenGenv.funMacResolve
+        macroCompiler = givenGenv.macroCompiler
+        return (...args) => {
+          rtAssert(
+            args.length === arity,
+            `wrong number of arguments to ${funmacType}: ${fname}`,
+          )
+          const varValues = new Map()
+          for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
+          const newEnv = { varValues, outer: null }
+          for (const cbody of cbutLastBodies) cbody(newEnv)
+          return clastBody(newEnv)
+        }
+      }
+    },
   }
 }
 
@@ -280,7 +285,7 @@ const quasiquote = (ast) => {
   return [symbol('list'), ...qqAst]
 }
 
-const makeToDataCompiler = (funcCtx) => {
+export const makeToDataCompiler = (funcCtx) => {
   const compile = (ast, ctx) => {
     if (isInt32(ast) || typeof ast === 'string')
       return { type: 'value', value: ast }
@@ -314,6 +319,7 @@ const makeToDataCompiler = (funcCtx) => {
       }
       case 'func':
       case 'macro': {
+        ctAssert(ctx === null, 'func/macro must be at top level')
         ctAssert(rest.length >= 3, 'func must have at least 3 arguments')
         const fname = ctAssertSymbol(rest[0], 'first argument must be a symbol')
         ctAssert(Array.isArray(rest[1]), 'second argument must be a list')
@@ -427,14 +433,14 @@ const makeToDataCompiler = (funcCtx) => {
   return (ast) => compile(ast, null)
 }
 
-export const makeCompiler = (funcCtx) => {
+const makeCompiler = (funcCtx) => {
   const funmacCtx = new Map()
   for (const [name, funcObj] of funcCtx)
     funmacCtx.set(name, { ...funcObj, funmacType: 'func' })
   const compileToData = makeToDataCompiler(funmacCtx)
   const compileMacro = (astFromMacro) => {
     try {
-      return compileToData(astFromMacro, null)
+      return compileToData(astFromMacro)
     } catch (e) {
       if (e instanceof CompileError)
         throw new RuntimeError('macro compile error at runtime: ' + e.message)
@@ -442,21 +448,33 @@ export const makeCompiler = (funcCtx) => {
     }
   }
   return (ast) => {
-    const ctx = null
-    const data = compileToData(ast, ctx)
-    const translated = transDataToClosure(data)
+    const data = compileToData(ast)
+    const isFuncOrMacro = data.type === 'funmac'
+    const translated = transData(data)
     return (funMacEnv) => {
-      const unsEvaluator = evalData(funMacEnv, compileMacro)
-      const eres = unsEvaluator(data, new Map())
+      const getMacro = (name) => {
+        const f = funMacEnv.get(name)
+
+        return f
+      }
+
       // return eres
+      // const compFunMacEnv = new Map(funMacEnv)
       const cres = translated({
-        funMacEnv: funMacEnv,
+        funMacResolve: (name) => {
+          const f = funMacEnv.get(name)
+          rtAssert(f, 'undefined funmac: ' + name)
+          return f
+        },
         macroCompiler: compileMacro,
       })
-      if (JSON.stringify(cres) !== JSON.stringify(eres)) {
-        console.log('expected', eres, 'got', cres)
-        throw new Error('compile error: expected ' + eres + ' got ' + cres)
-      }
+      // const evalFunMacEnv = new Map(funMacEnv)
+      // const unsEvaluator = evalData(evalFunMacEnv, compileMacro)
+      // const eres = unsEvaluator(data, new Map())
+      // if (JSON.stringify(cres) !== JSON.stringify(eres)) {
+      //   console.log('expected', eres, 'got', cres)
+      //   throw new Error('compile error: expected ' + eres + ' got ' + cres)
+      // }
       return cres
     }
   }

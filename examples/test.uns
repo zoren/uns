@@ -22,6 +22,9 @@
 [func inc [x] [add x 1]] ; => []
 [inc 1] ; => 2
 
+[func inc-inc [x] [inc [inc x]]] ; => []
+[inc-inc 1] ; => 3
+
 [let [x 2 y 3] [add x y]] ; => 5
 [let [x 2 y x] [add x y]] ; => 4
 [let [x 2] [let [y 3] [add x y]]] ; => 5
