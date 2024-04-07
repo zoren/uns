@@ -95,7 +95,7 @@
     [store32 [add p 4] value]
     p]]
 
-[func align4 [x] [bit-and [add x 3] [xor 3 -1]]]
+[func align4 [x] [bit-and [add x 3] [bit-xor 3 -1]]]
 
 [func alloc-string-from-bytes [pointer size]
   [assert [not [is-negative size]] 'alloc-string-from-bytes negative size']

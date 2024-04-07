@@ -29,7 +29,7 @@ for (const [name, fn] of [
 
   ['bit-and', (a, b) => a & b],
   ['bit-or', (a, b) => a | b],
-  ['xor', (a, b) => a ^ b],
+  ['bit-xor', (a, b) => a ^ b],
   ['shift-right', (a, b) => a >> b],
 ]) {
   funcEnv.set(name, (...args) => {
@@ -83,7 +83,8 @@ funcEnv.set('concat', (...args) => {
   const result = []
   for (const arg of args) {
     assert(Array.isArray(arg), 'concat: expected array')
-    result.push(...arg)}
+    result.push(...arg)
+  }
   return result
 })
 
@@ -91,6 +92,31 @@ funcCtx.set('concat', {
   restParam: 'args',
   params: [],
   results: [{ type: 'list' }],
+})
+
+funcEnv.set('size', (a) => {
+  assert(Array.isArray(a), 'size: expected array')
+  return a.length
+})
+
+funcCtx.set('size', {
+  params: [{ pname: 'a', type: 'list' }],
+  results: [{ type: 'i32' }],
+})
+
+funcEnv.set('nth', (coll, index) => {
+  assert(Array.isArray(coll), 'nth: expected array')
+  assert(isInt32(index), 'nth: index must be a number')
+  assert(index >= 0 && index < coll.length, 'nth: index out of bounds')
+  return coll[index]
+})
+
+funcCtx.set('nth', {
+  params: [
+    { pname: 'coll', type: 'list' },
+    { pname: 'index', type: 'i32' },
+  ],
+  results: [],
 })
 
 funcEnv.set('print', (...args) => {

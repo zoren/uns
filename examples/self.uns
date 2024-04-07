@@ -1,0 +1,88 @@
+[func not [c] [if c 0 1]]
+
+[macro when [cond .. forms]
+  [quasiquote
+    [if [unquote cond]
+       [let []
+         [splice-unquote forms]]
+       []]]]
+
+[macro when-not [cond .. forms]
+  [quasiquote
+    [if [not [unquote cond]]
+       [let []
+         [splice-unquote forms]]
+       []]]]
+
+[macro assert [cond msg]
+  [quasiquote
+    [when-not [unquote cond]
+      [print [unquote msg]]
+      [abort 'assert fail']]]]
+
+[func inc [x] [add x 1]]
+
+[func dec [x] [sub x 1]]
+
+[func is-odd [x] [bit-and x 1]]
+
+[func is-even [x] [not [bit-and x 1]]]
+
+[macro ifs [.. clauses]
+  [let [s [size clauses]]
+    [assert [is-odd s] 'ifs requires an odd number of forms']
+    [loop [res [nth clauses [dec s]]
+           i [dec s]]
+      [if i
+        [cont 
+          [list [quote if]
+            [nth clauses [sub i 2]] 
+            [nth clauses [dec i]] 
+            res]
+          [sub i 2]]
+          
+        res]]]]
+
+[func is-negative [x] [lt x 0]]
+
+[func is-between-inclusive [lower c upper]
+  [bit-and [le lower c] [le c upper]]]
+
+[func is-align4 [x] [eq [bit-and x 3] 0]]
+
+[func align4 [x] [bit-and [add x 3] [bit-xor 3 -1]]]
+
+; ascii fun
+[func is-whitespace [c]
+  [bit-or [eq c 32] [eq c 10]]]
+
+[func is-digit [c] [is-between-inclusive 0x30 c 0x39]]
+
+[func is-ident-char [c]
+  [bit-or
+    [is-between-inclusive 97 c 122] ; a-z
+    [bit-or
+      [is-digit c]
+      [is-between-inclusive 45 c 46] ; -.
+      ]]]
+
+[func get-token [start end]
+  [assert [lt start end] 'empty token']
+  [let [c [load8u start]]
+    [ifs
+      [is-ident-char c]
+      [loop [j [inc start]]
+        [if [if [lt j end] [is-ident-char [load8u j]] 0]
+          [cont [inc j]]
+          [list 97 j]]]
+
+      [is-whitespace c]
+      [loop [j [inc start]]
+        [if [if [lt j end] [is-whitespace [load8u j]] 0]
+          [cont [inc j]]
+          [list 32 j]]]
+    
+      [bit-or [eq c 91] [eq c 93]] ; '[' ']'
+      [list c [inc start]]
+
+      [abort 'unexpected character']]]]
