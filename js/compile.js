@@ -334,12 +334,6 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
         const valueForm = formWithTokensToForm(arg)
         return { type: 'value', value: valueForm }
       }
-      case 'quasiquoteexpand': {
-        ctAssert(rest.length === 1, 'quasiquoteexpand must have 1 argument')
-        const [arg] = rest
-        const valueForm = formWithTokensToForm(arg)
-        return quasiquote(valueForm)
-      }
       case 'quasiquote': {
         ctAssert(rest.length === 1, 'quasiquote must have 1 argument')
         const [arg] = rest
