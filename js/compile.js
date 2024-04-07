@@ -197,9 +197,7 @@ const quasiquote = (ast) => {
     const [_, splqe] = spliceUnquoteElem
     spliced.push(splqe)
 
-    const tail = working.slice(i + 1)
-    console.log({ i, heading, splqe })
-    working = tail
+    working = working.slice(i + 1)
   }
   return [symbol('concat'), ...spliced]
 }

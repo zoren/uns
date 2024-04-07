@@ -97,7 +97,7 @@ export const makeLexBox = (inputString) => {
   }
 }
 
-const skipWhitespaceComments = ({ currentToken, next }) => {
+export const skipWhitespaceComments = ({ currentToken, next }) => {
   do {
     const token = currentToken()
     if (token === null) return

@@ -1,42 +1,6 @@
 import { makeLexBox, parse } from './read.js'
-import { makeToDataCompiler, transData } from './compile.js'
 import { print } from './print.js'
-import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
-
-const makeEvaluator = () => {
-  const funmacCtx = makeFuncCtx()
-
-  const funMacEnv = makeFuncEnv()
-
-  const funmacResolve = (name) => funMacEnv.get(name)
-
-  const compileToData = makeToDataCompiler(
-    (name) => funmacCtx.get(name),
-    funmacResolve,
-  )
-
-  const { transTopLevel, transForm } = transData(funmacResolve)
-
-  return (form) => {
-    const data = compileToData(form)
-    const isFuncOrMacro = data.type === 'funmac'
-    if (isFuncOrMacro) {
-      // could make recursive by extracting fname, isMacro and paramNames from from form and binding before compiling
-      const { fname, isMacro, paramNames, restParam } = data
-      funmacCtx.set(fname, {
-        isMacro,
-        params: paramNames.map((pname) => {
-          pname
-        }),
-        restParam
-      })
-      const f = transTopLevel(data)
-      funMacEnv.set(data.fname, f)
-      return []
-    }
-    return transForm(data)
-  }
-}
+import { makeEvaluator } from './main.js'
 
 export const parseRelatedTest = () => {
   const tests = [

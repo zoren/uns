@@ -1,15 +1,48 @@
 import { makeLexBox, skipWhitespaceComments, parse } from './read.js'
-import { makeCompiler, CompileError } from './compile.js'
+import { makeToDataCompiler, transData, CompileError } from './compile.js'
 import { RuntimeError } from './lib.js'
 import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
 
+export const makeEvaluator = () => {
+  const funmacCtx = makeFuncCtx()
+
+  const funMacEnv = makeFuncEnv()
+
+  const funmacResolve = (name) => funMacEnv.get(name)
+
+  const compileToData = makeToDataCompiler(
+    (name) => funmacCtx.get(name),
+    funmacResolve,
+  )
+
+  const { transTopLevel, transForm } = transData(funmacResolve)
+
+  return (form) => {
+    const data = compileToData(form)
+    const isFuncOrMacro = data.type === 'funmac'
+    if (isFuncOrMacro) {
+      // could make recursive by extracting fname, isMacro and paramNames from from form and binding before compiling
+      const { fname, isMacro, paramNames, restParam } = data
+      funmacCtx.set(fname, {
+        isMacro,
+        params: paramNames.map((pname) => {
+          pname
+        }),
+        restParam,
+      })
+      const f = transTopLevel(data)
+      funMacEnv.set(data.fname, f)
+      return []
+    }
+    return transForm(data)
+  }
+}
+
 export const makeReadEvalPrint = () => {
-  const funcEnv = makeFuncEnv()
-  const funcCtx = makeFuncCtx()
-  const compile = makeCompiler(funcCtx)
+  const evalUns = makeEvaluator()
   return (content, { log, error }) => {
-    assert(error, 'error must be provided')
+    if (!error) throw new Error('error must be provided')
     const lexBox = makeLexBox(content)
     const readForm = parse(lexBox)
     try {
@@ -17,8 +50,8 @@ export const makeReadEvalPrint = () => {
         skipWhitespaceComments(lexBox)
         if (lexBox.currentToken() === null) break
         const form = readForm()
-        const cform = compile(form)
-        log(print(cform(funcEnv)))
+        const resForm = evalUns(form)
+        log(print(resForm))
       }
     } catch (e) {
       if (e instanceof CompileError || e instanceof RuntimeError) {
