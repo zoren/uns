@@ -54,16 +54,16 @@
 [let [i 1] [quasiquote [if [unquote i] 2 3]]] ; => [if 1 2 3]
 
 [macro unless [cond then else]
-     [quasiquote [if [unquote cond] [unquote else] [unquote then]]]] ; => []
+  [quasiquote [if [unquote cond] [unquote else] [unquote then]]]] ; => []
 [unless 0 7 8] ; => 7
 
 [func fib-loop [n]
-     [loop [a 0
-            b 1
-            i n]
-           [if i
-               [cont b [add a b] [sub i 1]]
-               a]]] ; => []
+  [loop [a 0
+         b 1
+         i n]
+     [if i
+       [cont b [add a b] [sub i 1]]
+       a]]] ; => []
 
 [fib-loop 10] ; => 55
 [fib-loop 20] ; => 6765
@@ -87,5 +87,18 @@
 
 [let [i 0] [unless 1 i 2]]
 [macro unless-unless [cond then else]
-     [unless cond then else]] ; => []
+  [unless cond then else]] ; => []
 [unless-unless 0 7 8] ; => 7
+
+[func hva [.. rest] rest] ;
+
+[hva 2 3 4] ; => [2 3 4]
+
+[macro when [cond .. forms]
+  [quasiquote
+    [if [unquote cond]
+       [let []
+         [splice-unquote forms]]
+       []]]]
+
+[when 1 [print 'in when']]

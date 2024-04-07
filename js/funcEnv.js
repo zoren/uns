@@ -74,8 +74,22 @@ funcCtx.set('abort', {
 funcEnv.set('list', (...args) => args)
 
 funcCtx.set('list', {
-  variadic: true,
-  params: [{ pname: 'args', type: 'value' }],
+  restParam: 'args',
+  params: [],
+  results: [{ type: 'list' }],
+})
+
+funcEnv.set('concat', (...args) => {
+  const result = []
+  for (const arg of args) {
+    assert(Array.isArray(arg), 'concat: expected array')
+    result.push(...arg)}
+  return result
+})
+
+funcCtx.set('concat', {
+  restParam: 'args',
+  params: [],
   results: [{ type: 'list' }],
 })
 
@@ -85,8 +99,8 @@ funcEnv.set('print', (...args) => {
 })
 
 funcCtx.set('print', {
-  variadic: true,
-  params: [{ pname: 'args', type: 'value' }],
+  restParam: 'args',
+  params: [],
   results: [],
 })
 

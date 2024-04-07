@@ -108,17 +108,18 @@ export const transData = (funMacResolve) => {
     },
     transTopLevel: (data) => {
       if (data.type !== 'funmac') throw new Error('expected funmac')
-      const { fname, paramNames, butLastBodies, lastBody } = data
+      const { fname, paramNames, restParam, butLastBodies, lastBody } = data
       const cbutLastBodies = butLastBodies.map(transD)
       const clastBody = transD(lastBody)
       const arity = paramNames.length
       return (...args) => {
-        rtAssert(
-          args.length === arity,
-          `wrong number of arguments to: ${fname}`,
-        )
+        rtAssert(args.length >= arity, `wrong number of arguments to: ${fname}`)
         const varValues = new Map()
         for (let i = 0; i < arity; i++) varValues.set(paramNames[i], args[i])
+        if (restParam) {
+          const restArgs = args.slice(arity)
+          varValues.set(restParam, restArgs)
+        }
         const newEnv = { varValues, outer: null }
         for (const cbody of cbutLastBodies) cbody(newEnv)
         return clastBody(newEnv)
@@ -140,9 +141,6 @@ const ctAssert = (cond, msg) => {
 const getFromContext = (ctx, name) => {
   if (ctx === null) return null
   const { vars } = ctx
-  if (!vars) {
-    console.dir(ctx, { depth: 10 })
-  }
   ctAssert(vars, 'no vars in context: ' + name)
   if (vars.has(name)) return vars.get(name)
   return getFromContext(ctx.outer, name)
@@ -177,8 +175,33 @@ const quasiquote = (ast) => {
     ctAssert(rest.length === 1, 'unquote must have 1 argument')
     return rest[0]
   }
-  const qqAst = ast.map(quasiquote)
-  return [symbol('list'), ...qqAst]
+  const spliced = []
+  let working = [...ast]
+  while (working.length > 0) {
+    const i = working.findIndex(
+      (ele) => Array.isArray(ele) && isSymbol(ele[0]) === 'splice-unquote',
+    )
+    if (i === -1) {
+      spliced.push([symbol('list'), ...working.map(quasiquote)])
+      break
+    }
+
+    const heading = working.slice(0, i)
+    spliced.push([symbol('list'), ...heading.map(quasiquote)])
+
+    const spliceUnquoteElem = working[i]
+    ctAssert(
+      spliceUnquoteElem.length === 2,
+      'splice-unquote must have 1 argument',
+    )
+    const [_, splqe] = spliceUnquoteElem
+    spliced.push(splqe)
+
+    const tail = working.slice(i + 1)
+    console.log({ i, heading, splqe })
+    working = tail
+  }
+  return [symbol('concat'), ...spliced]
 }
 
 export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
@@ -201,7 +224,10 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
     ctAssert(Array.isArray(ast), 'ast must be an array at this point')
     if (ast.length === 0) return { type: 'value', value: [] }
     const [first, ...rest] = ast
-    const firstName = ctAssertSymbol(first, 'first element must be a symbol')
+    const firstName = ctAssertSymbol(
+      first,
+      'first element must be a symbol: ' + first,
+    )
     const isLoopTailPosition = ctx && ctx.isLoopTailPosition
     switch (firstName) {
       case 'if': {
@@ -219,11 +245,28 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
         ctAssert(rest.length >= 3, 'func must have at least 3 arguments')
         const fname = ctAssertSymbol(rest[0], 'first argument must be a symbol')
         ctAssert(Array.isArray(rest[1]), 'second argument must be a list')
-        const paramNames = rest[1].map((x) =>
-          ctAssertSymbol(x, 'parameters must be symbols'),
-        )
+        let restParam = null
+        let plainParams
+        {
+          const paramNames = rest[1].map((x) =>
+            ctAssertSymbol(x, 'parameters must be symbols'),
+          )
+          const dotdotIndex = paramNames.findIndex((p) => p === '..')
+          if (dotdotIndex !== -1) {
+            ctAssert(
+              dotdotIndex === paramNames.length - 2,
+              '.. can only be in second last position',
+            )
+            restParam = paramNames.at(-1)
+            plainParams = paramNames.slice(0, -2)
+          } else {
+            plainParams = paramNames
+          }
+        }
         const bodyCtxVars = new Map()
-        for (const name of paramNames) bodyCtxVars.set(name, { isParam: true })
+        for (const name of plainParams) bodyCtxVars.set(name, { isParam: true })
+        if (restParam)
+          bodyCtxVars.set(restParam, { isParam: true, isRest: true })
         const bodyCtx = { vars: bodyCtxVars, outer: ctx }
         const cbodies = rest.slice(2, -1).map((f) => compile(f, bodyCtx))
         const clastBody = compile(rest.at(-1), bodyCtx)
@@ -231,7 +274,8 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
           type: 'funmac',
           isMacro: firstName === 'macro',
           fname,
-          paramNames,
+          paramNames: plainParams,
+          restParam,
           butLastBodies: cbodies,
           lastBody: clastBody,
         }
@@ -291,6 +335,12 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
         const valueForm = formWithTokensToForm(arg)
         return { type: 'value', value: valueForm }
       }
+      case 'quasiquoteexpand': {
+        ctAssert(rest.length === 1, 'quasiquoteexpand must have 1 argument')
+        const [arg] = rest
+        const valueForm = formWithTokensToForm(arg)
+        return quasiquote(valueForm)
+      }
       case 'quasiquote': {
         ctAssert(rest.length === 1, 'quasiquote must have 1 argument')
         const [arg] = rest
@@ -302,10 +352,13 @@ export const makeToDataCompiler = (funcCtxResolve, macroRuntimeResolve) => {
 
     const fnctx = funcCtxResolve(firstName)
     ctAssert(fnctx, 'undefined function/macro: ' + firstName)
-    const { params, variadic, isMacro } = fnctx
+    const { params, restParam, isMacro } = fnctx
+    const argCount = rest.length
     ctAssert(
-      variadic || params.length === rest.length,
-      `wrong number of arguments to: ${firstName}`,
+      restParam ? params.length <= argCount : params.length === argCount,
+      `wrong number of arguments to: ${firstName}, got ${argCount} expected ${
+        restParam ? 'more than or' : 'exactly'
+      } ${params.length}`,
     )
     if (isMacro) {
       const macFun = macroRuntimeResolve(firstName)

@@ -1,6 +1,5 @@
 import { makeLexBox, parse } from './read.js'
-import { RuntimeError } from './lib.js'
-import { makeToDataCompiler, transData, CompileError } from './compile.js'
+import { makeToDataCompiler, transData } from './compile.js'
 import { print } from './print.js'
 import { makeFuncEnv, makeFuncCtx } from './funcEnv.js'
 
@@ -23,12 +22,13 @@ const makeEvaluator = () => {
     const isFuncOrMacro = data.type === 'funmac'
     if (isFuncOrMacro) {
       // could make recursive by extracting fname, isMacro and paramNames from from form and binding before compiling
-      const { fname, isMacro, paramNames } = data
+      const { fname, isMacro, paramNames, restParam } = data
       funmacCtx.set(fname, {
         isMacro,
         params: paramNames.map((pname) => {
           pname
         }),
+        restParam
       })
       const f = transTopLevel(data)
       funMacEnv.set(data.fname, f)
