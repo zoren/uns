@@ -155,6 +155,7 @@ const ctAssertSymbol = (form, msg) => {
 
 export const formWithTokensToForm = (ast) => {
   if (Array.isArray(ast)) return ast.map(formWithTokensToForm)
+  if (isInt32(ast) || typeof ast === 'string') return ast
   if (isSymbol(ast)) return ast
   const { tokenType, value } = ast
   ctAssert(tokenType, 'formWithTokensToForm: no tokenType')
