@@ -149,10 +149,19 @@ for (const [expected, input] of printTests) {
   )
 }
 
-const wunsEval = (form) => {
-  if (typeof form === 'string') return env.get(form)
+const wunsEval = (form, env) => {
+  if (typeof form === 'string')
+    while (true) {
+      assert(env, 'undefined word: ' + form)
+      const { varValues, outer } = env
+      if (varValues.has(form)) return varValues.get(form)
+      env = outer
+    }
 
-  assert(Array.isArray(form), `cannot eval ${form} expected string or array`)
+  assert(
+    Array.isArray(form),
+    `cannot eval ${form} expected string or array, found:  ${typeof form}`,
+  )
 
   const [firstWord, ...args] = form
   switch (firstWord) {
@@ -160,6 +169,15 @@ const wunsEval = (form) => {
       const econd = wunsEval(args[0])
       if (econd === '0') return wunsEval(args[2])
       return wunsEval(args[1])
+    }
+    case 'let': {
+      const [bindings, ...bodies] = args
+      const varValues = new Map()
+      const inner = { varValues, outer: env }
+      for (let i = 0; i < bindings.length - 1; i += 2)
+        varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
+      for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
+      return wunsEval(bodies.at(-1), inner)
     }
     case 'quote':
       return args[0]
@@ -169,22 +187,38 @@ const wunsEval = (form) => {
 }
 
 const tests = `
+[quote 007] [.= 007]
+[quote 007] [.= 007]
+[quote x] [.= x]
+
 [if [quote 0] [quote t] [quote f]] [.= f]
 [if [quote 1] [quote t] [quote f]] [.= t]
+
+[let [a [quote 1]] a] [.= 1]
+[let [a [quote 1] b a] b] [.= 1]
+[let [] [quote 007]] [.= 007]
+[let [bond [quote 007]] bond] [.= 007]
 `
 
 const parse = makeParser(tests)
 
 let prev = null
+let eprev = null
 
 while (true) {
   const form = parse()
   if (form === null) break
-  if (!Array.isArray(form)) continue
-  const [first, second] = form
-  if (first !== '.=') {
-    prev = wunsEval(form)
-    continue
+  if (Array.isArray(form) && form[0] === '.=') {
+    const [_, second] = form
+    if (prev === null) continue
+    const peprev = print(eprev)
+    const pesec = print(second)
+    assert(
+      peprev === pesec,
+      `for ${print(prev)} expected '${pesec}' but got '${peprev}'`,
+    )
   }
-  if (prev !== null) assert(print(prev) === print(second), 'expected equal')
+
+  prev = form
+  eprev = wunsEval(form)
 }
