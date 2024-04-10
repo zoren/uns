@@ -2,6 +2,9 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error('READ ' + msg)
 }
 
+const tuple = (...args) => Object.freeze(args)
+const unit = tuple()
+
 const isWhitespace = (c) => c === ' ' || c === '\n'
 const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
@@ -29,7 +32,7 @@ export const makeParser = (inputString) => {
           }
           list.push(go())
         }
-        return Object.freeze(list)
+        return list.length === 0 ? unit : Object.freeze(list)
       }
       assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
       while (index < inputString.length && isSymbolChar(inputString[index]))
@@ -92,9 +95,6 @@ for (const [expected, input] of printTests) {
     `for '${input}' expected ${expected} but got ${actual}`,
   )
 }
-
-const tuple = (...args) => Object.freeze(args)
-const unit = tuple()
 
 const continueSymbol = Symbol.for('wuns-continue')
 
