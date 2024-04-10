@@ -149,11 +149,7 @@ for (const [expected, input] of printTests) {
   )
 }
 
-class ContinueWrapper {
-  constructor(eargs) {
-    this.eargs = eargs
-  }
-}
+const continueSymbol = Symbol.for('wuns-continue')
 
 const makeEvaluator = (funcEnv) => {
   const wunsEval = (form, env) => {
@@ -184,15 +180,17 @@ const makeEvaluator = (funcEnv) => {
           varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
         while (true) {
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
-          const lastRes = wunsEval(bodies.at(-1), inner)
-          if (!(lastRes instanceof ContinueWrapper)) return lastRes
-          const { eargs } = lastRes
-          for (let i = 0; i < eargs.length; i++)
-            varValues.set(bindings[i * 2], eargs[i])
+          const elast = wunsEval(bodies.at(-1), inner)
+          if (!elast[continueSymbol]) return elast
+          for (let i = 0; i < elast.length; i++)
+            varValues.set(bindings[i * 2], elast[i])
         }
       }
-      case 'cont':
-        return new ContinueWrapper(args.map((a) => wunsEval(a, env)))
+      case 'cont': {
+        const contArgs = args.map((a) => wunsEval(a, env))
+        contArgs[continueSymbol] = true
+        return Object.freeze(contArgs)
+      }
     }
     // throw new Error(`cannot eval ${print(form)}`)
     const func = funcEnv.get(firstWord)
