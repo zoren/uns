@@ -173,11 +173,8 @@ const makeEvaluator = (funcEnv) => {
     switch (firstWord) {
       case 'quote':
         return args[0]
-      case 'if': {
-        const econd = wunsEval(args[0], env)
-        if (econd === '0') return wunsEval(args[2], env)
-        return wunsEval(args[1], env)
-      }
+      case 'if':
+        return wunsEval(args[wunsEval(args[0], env) === '0' ? 2 : 1], env)
       case 'let':
       case 'loop': {
         const [bindings, ...bodies] = args
