@@ -2,6 +2,7 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error('READ ' + msg)
 }
 
+const isWhitespace = (c) => c === ' ' || c === '\n'
 const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
 export const makeParser = (inputString) => {
@@ -12,34 +13,27 @@ export const makeParser = (inputString) => {
       const startIndex = index
       const firstChar = inputString[index]
       index++
-      switch (firstChar) {
-        case '\n':
-        case ' ':
-          continue
-        case '[': {
-          const list = []
-          while (true) {
-            if (index >= inputString.length) break
-            const c = inputString[index]
-            if (c === ' ' || c === '\n') {
-              index++
-              continue
-            }
-            if (c === ']') {
-              index++
-              break
-            }
-            list.push(go())
+      if (isWhitespace(firstChar)) continue
+      if (firstChar === '[') {
+        const list = []
+        while (true) {
+          if (index >= inputString.length) break
+          const c = inputString[index]
+          if (isWhitespace(c)) {
+            index++
+            continue
           }
-          return Object.freeze(list)
+          if (c === ']') {
+            index++
+            break
+          }
+          list.push(go())
         }
-        case ']':
-          throw new Error('unexpected ]')
+        return Object.freeze(list)
       }
       assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
       while (index < inputString.length && isSymbolChar(inputString[index]))
         index++
-      if (startIndex >= index) throw new Error('empty symbol')
       return inputString.slice(startIndex, index)
     }
   }
