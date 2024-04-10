@@ -6,45 +6,38 @@ const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
 export const makeParser = (inputString) => {
   let index = 0
-  let token = null
-  const next = () => {
-    const lex = () => {
-      while (true) {
-        if (index >= inputString.length) return null
-        const startIndex = index
-        const firstChar = inputString[index++]
-        switch (firstChar) {
-          case '\n':
-          case ' ':
-            continue
-          case '[':
-          case ']':
-            return firstChar
-        }
-        assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
-        while (index < inputString.length && isSymbolChar(inputString[index]))
-          index++
-        return inputString.slice(startIndex, index)
+  const lex = () => {
+    while (true) {
+      if (index >= inputString.length) return null
+      const startIndex = index
+      const firstChar = inputString[index++]
+      switch (firstChar) {
+        case '\n':
+        case ' ':
+          continue
+        case '[':
+        case ']':
+          return firstChar
       }
+      assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
+      while (index < inputString.length && isSymbolChar(inputString[index]))
+        index++
+      return inputString.slice(startIndex, index)
     }
-    token = lex()
-    return null
   }
-  next()
-  const currentToken = () => token
+  let token = lex()
 
   const go = () => {
-    const token = currentToken()
-    if (token === null) return null
-    next()
-    switch (token) {
+    const curTok = token
+    if (curTok === null) return null
+    token = lex()
+    switch (curTok) {
       case '[': {
         const list = []
         while (true) {
-          const t = currentToken()
-          if (t === null) break
-          if (t === ']') {
-            next()
+          if (token === null) break
+          if (token === ']') {
+            token = lex()
             break
           }
           list.push(go())
@@ -54,7 +47,7 @@ export const makeParser = (inputString) => {
       case ']':
         throw new Error('unexpected ]')
       default:
-        return token
+        return curTok
     }
   }
 
