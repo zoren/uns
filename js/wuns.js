@@ -97,6 +97,7 @@ for (const [expected, input] of printTests) {
 }
 
 const continueSymbol = Symbol.for('wuns-continue')
+const macroSymbol = Symbol.for('wuns-macro')
 
 const makeEvaluator = (funcEnv) => {
   const wunsEval = (form, env) => {
@@ -138,12 +139,26 @@ const makeEvaluator = (funcEnv) => {
         contArgs[continueSymbol] = true
         return Object.freeze(contArgs)
       }
-      case 'func': {
-        const [fname, params, ...bodies] = args
+      case 'func':
+      case 'macro': {
+        const [fname, origParams, ...bodies] = args
+        const isMacro = firstWord === 'macro'
+        {
+          const predefF = funcEnv.get(fname)
+          if (predefF) {
+            assert(
+              !isMacro && !predefF[macroSymbol],
+              `only funcs can be redefined ${fname} ${predefF}`,
+            )
+          }
+        }
+        let params
         let restParam = null
-        if (params.at(-2) === '..') {
-          params = params.slice(0, -2)
-          restParam = params.at(-1)
+        if (origParams.at(-2) === '..') {
+          params = origParams.slice(0, -2)
+          restParam = origParams.at(-1)
+        } else {
+          params = origParams
         }
         const f = (...args) => {
           const varValues = new Map()
@@ -154,11 +169,14 @@ const makeEvaluator = (funcEnv) => {
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
           return wunsEval(bodies.at(-1), inner)
         }
+        f[macroSymbol] = isMacro
+        Object.freeze(f)
         funcEnv.set(fname, f)
         return unit
       }
     }
     const func = funcEnv.get(firstWord)
+    if (func[macroSymbol]) return wunsEval(func(...args), env)
     return func(...args.map((arg) => wunsEval(arg, env)))
   }
   return wunsEval
@@ -183,6 +201,13 @@ const tests = `
 [func inc [x] [add x [quote 1]]] [.= []]
 [inc [quote 1]] [.= 2]
 [inc [inc [quote 1]]] [.= 3]
+
+[func list [.. args] args] [.= []]
+[list [quote 1] [quote 2] [quote 3]] [.= [1 2 3]]
+
+[macro if-not [cond then else]
+  [list [quote if] cond else then]]
+[if-not [quote 0] [quote t] [quote f]] [.= t]
 `
 const funcEnv = new Map()
 funcEnv.set('add', (a, b) => String(Number(a) + Number(b)))
