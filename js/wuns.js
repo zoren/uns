@@ -171,31 +171,23 @@ const makeEvaluator = (funcEnv) => {
     )
     const [firstWord, ...args] = form
     switch (firstWord) {
+      case 'quote':
+        return args[0]
       case 'if': {
         const econd = wunsEval(args[0], env)
         if (econd === '0') return wunsEval(args[2], env)
         return wunsEval(args[1], env)
       }
-      case 'let': {
-        const [bindings, ...bodies] = args
-        const varValues = new Map()
-        const inner = { varValues, outer: env }
-        for (let i = 0; i < bindings.length - 1; i += 2)
-          varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
-        for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
-        return wunsEval(bodies.at(-1), inner)
-      }
+      case 'let':
       case 'loop': {
         const [bindings, ...bodies] = args
-        const butLastBodies = bodies.slice(0, -1)
-        const lastBody = bodies.at(-1)
         const varValues = new Map()
         const inner = { varValues, outer: env }
         for (let i = 0; i < bindings.length - 1; i += 2)
           varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
         while (true) {
-          for (const body of butLastBodies) wunsEval(body, inner)
-          const lastRes = wunsEval(lastBody, inner)
+          for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
+          const lastRes = wunsEval(bodies.at(-1), inner)
           if (!(lastRes instanceof ContinueWrapper)) return lastRes
           const { eargs } = lastRes
           for (let i = 0; i < eargs.length; i++)
@@ -204,9 +196,6 @@ const makeEvaluator = (funcEnv) => {
       }
       case 'cont':
         return new ContinueWrapper(args.map((a) => wunsEval(a, env)))
-
-      case 'quote':
-        return args[0]
     }
     // throw new Error(`cannot eval ${print(form)}`)
     const func = funcEnv.get(firstWord)
