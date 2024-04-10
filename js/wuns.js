@@ -152,13 +152,11 @@ const makeEvaluator = (funcEnv) => {
             )
           }
         }
-        let params
+        let params = origParams
         let restParam = null
         if (origParams.at(-2) === '..') {
           params = origParams.slice(0, -2)
           restParam = origParams.at(-1)
-        } else {
-          params = origParams
         }
         const f = (...args) => {
           const varValues = new Map()
