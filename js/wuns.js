@@ -149,6 +149,9 @@ for (const [expected, input] of printTests) {
   )
 }
 
+const tuple = (...args) => Object.freeze(args)
+const unit = tuple()
+
 const continueSymbol = Symbol.for('wuns-continue')
 
 const makeEvaluator = (funcEnv) => {
@@ -191,8 +194,26 @@ const makeEvaluator = (funcEnv) => {
         contArgs[continueSymbol] = true
         return Object.freeze(contArgs)
       }
+      case 'func': {
+        const [fname, params, ...bodies] = args
+        let restParam = null
+        if (params.at(-2) === '..') {
+          params = params.slice(0, -2)
+          restParam = params.at(-1)
+        }
+        const f = (...args) => {
+          const varValues = new Map()
+          const inner = { varValues, outer: null }
+          for (let i = 0; i < params.length; i++)
+            varValues.set(params[i], args[i])
+          if (restParam) varValues.set(restParam, args.slice(params.length))
+          for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
+          return wunsEval(bodies.at(-1), inner)
+        }
+        funcEnv.set(fname, f)
+        return unit
+      }
     }
-    // throw new Error(`cannot eval ${print(form)}`)
     const func = funcEnv.get(firstWord)
     return func(...args.map((arg) => wunsEval(arg, env)))
   }
@@ -214,6 +235,10 @@ const tests = `
 
 [loop [a [quote 1]] a] [.= 1]
 [loop [r [quote 0] i [quote 10]] [if i [cont [add r i] [sub i [quote 1]]] r]] [.= 55]
+
+[func inc [x] [add x [quote 1]]] [.= []]
+[inc [quote 1]] [.= 2]
+[inc [inc [quote 1]]] [.= 3]
 `
 const funcEnv = new Map()
 funcEnv.set('add', (a, b) => String(Number(a) + Number(b)))
@@ -224,6 +249,7 @@ const parse = makeParser(tests)
 let prev = null
 let eprev = null
 
+let asserts = 0
 while (true) {
   const form = parse()
   if (form === null) break
@@ -236,9 +262,11 @@ while (true) {
       peprev === pesec,
       `for ${print(prev)} expected '${pesec}' but got '${peprev}'`,
     )
+    asserts++
     continue
   }
 
   prev = form
   eprev = wunsEval(form)
 }
+console.log('ran eval', asserts, 'asserts')
