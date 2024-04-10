@@ -4,66 +4,30 @@ const assert = (cond, msg) => {
 
 const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
-const makeLexer = (inputString) => {
-  assert(typeof inputString === 'string', 'inputString must be a string')
-
-  let index = 0
-  return () => {
-    while (true) {
-      if (index >= inputString.length) return null
-      const startIndex = index
-      const firstChar = inputString[index++]
-      switch (firstChar) {
-        case '\n':
-        case ' ':
-          continue
-        case '[':
-        case ']':
-          return firstChar
-      }
-      assert(
-        isSymbolChar(firstChar),
-        `illegal character ${firstChar} charcode ${firstChar.charCodeAt(0)}`,
-      )
-      while (index < inputString.length && isSymbolChar(inputString[index]))
-        index++
-      return inputString.slice(startIndex, index)
-    }
-  }
-}
-
-const lexTests = [
-  [[], ''],
-  [[], ' '],
-  [[], ' \n'],
-
-  [['a'], 'a'],
-  [['a', 'b', 'c'], ' a b c'],
-  [['a', 'b', 'c'], ' a b c '],
-  [['abdc', 'b', 'c', '[', ']'], ' abdc b c [ ] '],
-  [['[', '[', ']', ']'], ' [[] ] '],
-]
-
-for (const [expected, input] of lexTests) {
-  const lexer = makeLexer(input)
-  const actual = []
-  let token
-  while ((token = lexer()) !== null) {
-    actual.push(token)
-  }
-  const jsonExpected = JSON.stringify(expected)
-  const jsonActual = JSON.stringify(actual)
-  assert(
-    jsonExpected === jsonActual,
-    `for '${input}' expected ${jsonExpected} but got ${jsonActual}`,
-  )
-}
-
 export const makeParser = (inputString) => {
-  const lexer = makeLexer(inputString)
+  let index = 0
   let token = null
   const next = () => {
-    token = lexer()
+    const lex = () => {
+      while (true) {
+        if (index >= inputString.length) return null
+        const startIndex = index
+        const firstChar = inputString[index++]
+        switch (firstChar) {
+          case '\n':
+          case ' ':
+            continue
+          case '[':
+          case ']':
+            return firstChar
+        }
+        assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
+        while (index < inputString.length && isSymbolChar(inputString[index]))
+          index++
+        return inputString.slice(startIndex, index)
+      }
+    }
+    token = lex()
     return null
   }
   next()
