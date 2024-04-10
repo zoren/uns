@@ -6,48 +6,41 @@ const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
 export const makeParser = (inputString) => {
   let index = 0
-  const lex = () => {
+  const go = () => {
     while (true) {
       if (index >= inputString.length) return null
       const startIndex = index
-      const firstChar = inputString[index++]
+      const firstChar = inputString[index]
+      index++
       switch (firstChar) {
         case '\n':
         case ' ':
           continue
-        case '[':
+        case '[': {
+          const list = []
+          while (true) {
+            if (index >= inputString.length) break
+            const c = inputString[index]
+            if (c === ' ' || c === '\n') {
+              index++
+              continue
+            }
+            if (c === ']') {
+              index++
+              break
+            }
+            list.push(go())
+          }
+          return Object.freeze(list)
+        }
         case ']':
-          return firstChar
+          throw new Error('unexpected ]')
       }
       assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
       while (index < inputString.length && isSymbolChar(inputString[index]))
         index++
+      if (startIndex >= index) throw new Error('empty symbol')
       return inputString.slice(startIndex, index)
-    }
-  }
-  let token = lex()
-
-  const go = () => {
-    const curTok = token
-    if (curTok === null) return null
-    token = lex()
-    switch (curTok) {
-      case '[': {
-        const list = []
-        while (true) {
-          if (token === null) break
-          if (token === ']') {
-            token = lex()
-            break
-          }
-          list.push(go())
-        }
-        return Object.freeze(list)
-      }
-      case ']':
-        throw new Error('unexpected ]')
-      default:
-        return curTok
     }
   }
 
