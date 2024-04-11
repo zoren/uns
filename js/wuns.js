@@ -82,7 +82,7 @@ export const makeEvaluator = (funcEnv) => {
         while (true) {
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
           const elast = wunsEval(bodies.at(-1), inner)
-          if (!elast[continueSymbol]) return elast
+          if (firstWord !== 'loop' || !elast[continueSymbol]) return elast
           for (let i = 0; i < elast.length; i++)
             varValues.set(bindings[i * 2], elast[i])
         }

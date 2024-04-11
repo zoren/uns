@@ -64,7 +64,14 @@ const tests = `
 [let [bond [quote 007]] bond] [.= 007]
 
 [loop [a [quote 1]] a] [.= 1]
-[loop [r [quote 0] i [quote 10]] [if i [cont [add r i] [sub i [quote 1]]] r]] [.= 55]
+[loop [r [quote 0] i [quote 10]] 
+  [if i
+    [cont [add r i] [sub i [quote 1]]]
+    r]] [.= 55]
+[loop [r [quote 0] i [quote 10]]
+  [if i
+    [let [] [cont [add r i] [sub i [quote 1]]]]
+    r]] [.= 55]
 
 [func inc [x] [add x [quote 1]]] [.= []]
 [inc [quote 1]] [.= 2]
