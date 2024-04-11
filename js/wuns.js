@@ -24,25 +24,41 @@ const lex = function* (s) {
 const tuple = (...args) => Object.freeze(args)
 const unit = tuple()
 
-export const makeParser = (is) => {
-  const tokenGen = lex(is)
+const makeLexer = (tokenGen) => {
   let currentToken = null
   const nextToken = () => {
     const { done, value } = tokenGen.next()
     currentToken = done ? null : value
   }
   nextToken()
+  return {
+    getCurrentToken: () => currentToken,
+    nextToken,
+  }
+}
+
+const makeParserFromLexer = ({ getCurrentToken, nextToken }) => {
   const go = () => {
-    const token = currentToken
+    const token = getCurrentToken()
     if (token === null) return null
     nextToken()
     if (token !== '[') return token
     const list = []
-    while (currentToken !== ']') list.push(go())
+    while (true) {
+      const token = getCurrentToken()
+      if (token === null || token === ']') break
+      list.push(go())
+    }
     nextToken()
     return list.length === 0 ? unit : Object.freeze(list)
   }
   return go
+}
+
+export const makeParser = (is) => {
+  const lexGen = lex(is)
+  const lexer = makeLexer(lexGen)
+  return makeParserFromLexer(lexer)
 }
 
 export const print = (x) => {
