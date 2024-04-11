@@ -1,5 +1,5 @@
 const assert = (cond, msg) => {
-  if (!cond) throw new Error('READ ' + msg)
+  if (!cond) throw new Error('assert failed: ' + msg)
 }
 
 const tuple = (...args) => Object.freeze(args)
@@ -62,10 +62,7 @@ export const makeEvaluator = (funcEnv) => {
         env = outer
       }
 
-    assert(
-      Array.isArray(form),
-      `cannot eval ${form} expected string or array, found:  ${typeof form}`,
-    )
+    assert(Array.isArray(form), `cannot eval ${form} expected string or array`)
     const [firstWord, ...args] = form
     switch (firstWord) {
       case 'quote':
@@ -102,10 +99,10 @@ export const makeEvaluator = (funcEnv) => {
         }
         const f = (...args) => {
           const varValues = new Map()
-          const inner = { varValues, outer: null }
           for (let i = 0; i < params.length; i++)
             varValues.set(params[i], args[i])
           if (restParam) varValues.set(restParam, args.slice(params.length))
+          const inner = { varValues, outer: null }
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
           return wunsEval(bodies.at(-1), inner)
         }
