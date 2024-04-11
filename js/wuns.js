@@ -32,13 +32,11 @@ export const makeParser = (is) => {
       if (index >= tokens.length) return null
       const token = tokens[index]
       index++
-      if (token === '[') {
-        const list = []
-        while (index < tokens.length && tokens[index] !== ']') list.push(go())
-        index++
-        return list.length === 0 ? unit : Object.freeze(list)
-      }
-      return token
+      if (token !== '[') return token
+      const list = []
+      while (index < tokens.length && tokens[index] !== ']') list.push(go())
+      index++
+      return list.length === 0 ? unit : Object.freeze(list)
     }
   }
 
