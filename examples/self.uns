@@ -1,18 +1,22 @@
-[func not [c] [if c 0 1]]
+[macro if-not [cond then else]
+  [list [quote if] cond else then]]
+
+[macro do [.. forms]
+  [list [[quote let] [] forms]]]
 
 [macro when [cond .. forms]
   [quasiquote
     [if [unquote cond]
-       [let []
-         [splice-unquote forms]]
-       []]]]
+       [do [splice-unquote forms]]
+       []]]
+       
+       ]
 
 [macro when-not [cond .. forms]
   [quasiquote
-    [if [not [unquote cond]]
-       [let []
-         [splice-unquote forms]]
-       []]]]
+    [if [unquote cond]
+      []
+      [do [splice-unquote forms]]]]]
 
 [macro assert [cond msg]
   [quasiquote
@@ -26,7 +30,9 @@
 
 [func is-odd [x] [bit-and x 1]]
 
-[func is-even [x] [not [bit-and x 1]]]
+[func not [c] [eqz c]]
+
+[func is-even [x] [not [is-odd x]]]
 
 [macro ifs [.. clauses]
   [let [s [size clauses]]
@@ -34,21 +40,28 @@
     [loop [res [nth clauses [dec s]]
            i [dec s]]
       [if i
-        [cont 
+        [cont
           [list [quote if]
-            [nth clauses [sub i 2]] 
-            [nth clauses [dec i]] 
+            [nth clauses [sub i 2]]
+            [nth clauses [dec i]]
             res]
           [sub i 2]]
-          
         res]]]]
+
+[macro and [.. args]
+  [let [s [size args]]
+    [if [eq s 0]
+      [quote 1]
+
+      [loop [i 0
+             res [nth args [dec s]]]
+        [if [lt i s]
+          
+          ]]]]]
 
 [func is-negative [x] [lt x 0]]
 
-[func is-between-inclusive [lower c upper]
-  [bit-and [le lower c] [le c upper]]]
-
-[func is-align4 [x] [eq [bit-and x 3] 0]]
+[func is-align4 [x] [eqz [bit-and x 3]]]
 
 [func align4 [x] [bit-and [add x 3] [bit-xor 3 -1]]]
 
@@ -56,7 +69,10 @@
 [func is-whitespace [c]
   [bit-or [eq c 32] [eq c 10]]]
 
-[func is-digit [c] [is-between-inclusive 0x30 c 0x39]]
+[func is-between-inclusive [lower c upper]
+  [bit-and [le lower c] [le c upper]]]
+
+[func is-digit [c] [is-between-inclusive 48 c 57]]
 
 [func is-ident-char [c]
   [bit-or
@@ -81,8 +97,46 @@
         [if [if [lt j end] [is-whitespace [load8u j]] 0]
           [cont [inc j]]
           [list 32 j]]]
-    
+
       [bit-or [eq c 91] [eq c 93]] ; '[' ']'
       [list c [inc start]]
 
       [abort 'unexpected character']]]]
+
+[func print-tokens [start end]
+  [loop [i start]
+    [when [lt i end]
+      [let [token [get-token i end]
+            tok-end [nth token 1]]
+        [print [nth token 0] [sub tok-end i]]
+        [cont tok-end]]]]]
+
+[func parse [start end]
+  [loop [i start
+         depth 0]
+    [when [lt i end]
+      [let [token [get-token i end]
+            tok-type [nth token 0]
+            tok-end [nth token 1]]
+        [ifs 
+          [eq tok-type 32]
+          [cont tok-end depth]
+
+          [eq tok-type 97]
+          [do
+            [print [quote ident]]
+;            [print [string-from-to i tok-end]]
+            [cont tok-end depth]]
+
+          [eq tok-type 91]
+          [do
+            [print [quote open]]
+            [cont tok-end [inc depth]]]
+
+          [eq tok-type 93]
+          [do
+            [assert [gt depth 0] 'unexpected close']
+            [print [quote close]]
+            [cont tok-end [dec depth]]]
+
+          [abort 'unexpected token type']]]]]]

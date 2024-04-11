@@ -1,4 +1,4 @@
-import { isInt32 } from './lib.js'
+import { isInt32, isSymbol } from './lib.js'
 import { print } from './print.js'
 import { RuntimeError } from './lib.js'
 
@@ -40,6 +40,16 @@ for (const [name, fn] of [
     return fn(a, b) | 0
   })
   funcCtx.set(name, { params, results })
+}
+
+for (const [name, fn] of [['eqz', (a) => a === 0]]) {
+  funcEnv.set(name, (...args) => {
+    assert(args.length === 1, name + ' expected one argument')
+    const [a] = args
+    assert(isInt32(a), 'first argument must be a number')
+    return Number(fn(a))
+  })
+  funcCtx.set(name, { params: [{ pname: 'a', type: 'i32' }], results })
 }
 
 for (const [name, fn] of [
@@ -130,6 +140,29 @@ funcCtx.set('print', {
   results: [],
 })
 
+const textEncoder = new TextEncoder()
+
+funcEnv.set('symbol-byte-size', (s) => {
+  const sname = isSymbol(s)
+  assert(sname, 'symbol-byte-size: expected symbol')
+  const bytes = textEncoder.encode(sname)
+  return bytes.length
+})
+
+funcCtx.set('symbol-byte-size', {
+  params: [{ pname: 's', type: 'symbol' }],
+  results: [{ type: 'i32' }],
+})
+
+funcCtx.set('store-symbol', {
+  params: [
+    { pname: 'addr', type: 'i32' },
+    { pname: 'n', type: 'i32' },
+    { pname: 's', type: 'symbol' },
+  ],
+  results: [{ type: 'i32', name: 'written' }],
+})
+
 funcCtx.set('memory-pages', {
   params: [],
   results: [{ type: 'i32' }],
@@ -154,7 +187,7 @@ funcCtx.set('memory-init-string', {
     { pname: 'dest', type: 'i32' },
     { pname: 's', type: 'string' },
   ],
-  results: [],
+  results: [{ type: 'i32', name: 'written' }],
 })
 
 for (const name of ['load8u', 'load32']) {
@@ -242,7 +275,7 @@ export const makeFuncEnv = () => {
       read === s.length,
       'memory-init-string: could not encode entire string',
     )
-    return []
+    return written
   })
 
   funcEnv.set('load8u', (...args) => {
@@ -281,5 +314,23 @@ export const makeFuncEnv = () => {
     return []
   })
 
+  funcEnv.set('store-symbol', (...args) => {
+    assert(args.length === 3, 'store-symbol: expected 2 arguments')
+    const [addr, memSpace, s] = args
+    assertAddress(addr, 'store-symbol: addr')
+    assert(isInt32(memSpace), 'store-symbol: value must be a number')
+    assert(memSpace >= 0, 'store-symbol: negative value')
+    const memEnd = addr + memSpace
+    assertAddress(memEnd, 'store-symbol addr + memSpace')
+    const symName = isSymbol(s)
+    assert(symName, 'store-symbol: expected symbol')
+    const { read, written } = textEncoder.encodeInto(
+      symName,
+      memory.subarray(addr, memEnd),
+    )
+    if (read !== symName.length)
+      console.log('warning store-symbol: could not encode entire symbol')
+    return written
+  })
   return funcEnv
 }

@@ -24,6 +24,17 @@ export const makeEvaluator = () => {
     if (isFuncOrMacro) {
       // could make recursive by extracting fname, isMacro and paramNames from from form and binding before compiling
       const { fname, isMacro, paramNames, restParam } = data
+      const prevDef = funmacCtx.get(fname)
+      if (prevDef) {
+        if (isMacro)
+          throw new CompileError(
+            `macro ${fname} already defined, redefinining macros is not allowed`,
+          )
+        if (prevDef.isMacro)
+          throw new CompileError(
+            `function ${fname} already defined as a macro,  redefinining macros is not allowed`,
+          )
+      }
       funmacCtx.set(fname, {
         isMacro,
         params: paramNames.map((pname) => {

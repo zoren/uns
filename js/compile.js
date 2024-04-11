@@ -155,6 +155,7 @@ const ctAssertSymbol = (form, msg) => {
 
 export const formWithTokensToForm = (ast) => {
   if (Array.isArray(ast)) return ast.map(formWithTokensToForm)
+  // here we normalize integers but we don't need to, 007 becomes 7 but we could keep the original string
   if (isInt32(ast) || typeof ast === 'string') return ast
   if (isSymbol(ast)) return ast
   const { tokenType, value } = ast

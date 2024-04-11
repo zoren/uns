@@ -32,7 +32,7 @@
 [let [x 2] [let [y 3] [add x y]]] ; => 5
 [let [x 2] [let [y x] [add x y]]] ; => 4
 
-[loop [r 0 i 10] [if i [cont [add r i] [sub i 1]] r]] ; => 55
+[loop [r [quote 0] i [quote 10]] [if i [cont [add r i] [sub i 1]] r]] ; => 55
 
 [quote f] ; => f
 [quote 0] ; => 0
@@ -76,3 +76,11 @@
        []]]]
 
 ;[when 1 [print 'in when']]
+
+[macro mf [x] []]
+[func caller [] [mf [add x 1]]]
+[func mf [x] x]
+[func caller [] [mf [add x 1]]]
+; here we should get an error, because x is not defined in the caller
+[caller] 
+;; this is a fundamental problem in LISP, it is the caller's responsibility to evaluate its arguments or not depending on dynamic context
