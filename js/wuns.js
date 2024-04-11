@@ -5,47 +5,36 @@ const assert = (cond, msg) => {
 const isWhitespace = (c) => c === ' ' || c === '\n'
 const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
-const lex = function* (s) {
+const lexerFromString = (s) => {
   let index = 0
-  while (index < s.length) {
-    const tokStart = index
-    const c = s[index++]
-    if (isWhitespace(c)) continue
-    if (c === '[' || c === ']') {
-      yield c
-      continue
+  return () => {
+    while (index < s.length) {
+      const tokStart = index
+      const c = s[index++]
+      if (isWhitespace(c)) continue
+      if (c === '[' || c === ']') return c
+      assert(isSymbolChar(c), `illegal character ${c}`)
+      while (index < s.length && isSymbolChar(s[index])) index++
+      return s.slice(tokStart, index)
     }
-    assert(isSymbolChar(c), `illegal character ${c}`)
-    while (index < s.length && isSymbolChar(s[index])) index++
-    yield s.slice(tokStart, index)
+    return null
   }
 }
 
 const tuple = (...args) => Object.freeze(args)
 const unit = tuple()
 
-const makeLexer = (tokenGen) => {
-  let currentToken = null
-  const nextToken = () => {
-    const { done, value } = tokenGen.next()
-    currentToken = done ? null : value
-  }
-  nextToken()
-  return {
-    getCurrentToken: () => currentToken,
-    nextToken,
-  }
-}
-
-const makeParserFromLexer = ({ getCurrentToken, nextToken }) => {
+const makeParserFromLexer = (lexNext) => {
+  let currentToken = lexNext()
+  const nextToken = () => (currentToken = lexNext())
   const go = () => {
-    const token = getCurrentToken()
+    const token = currentToken
     if (token === null) return null
     nextToken()
     if (token !== '[') return token
     const list = []
     while (true) {
-      const token = getCurrentToken()
+      const token = currentToken
       if (token === null || token === ']') break
       list.push(go())
     }
@@ -56,8 +45,7 @@ const makeParserFromLexer = ({ getCurrentToken, nextToken }) => {
 }
 
 export const makeParser = (is) => {
-  const lexGen = lex(is)
-  const lexer = makeLexer(lexGen)
+  const lexer = lexerFromString(is)
   return makeParserFromLexer(lexer)
 }
 
