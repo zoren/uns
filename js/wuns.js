@@ -25,21 +25,23 @@ const tuple = (...args) => Object.freeze(args)
 const unit = tuple()
 
 export const makeParser = (is) => {
-  const tokens = [...lex(is)]
-  let index = 0
-  const go = () => {
-    while (true) {
-      if (index >= tokens.length) return null
-      const token = tokens[index]
-      index++
-      if (token !== '[') return token
-      const list = []
-      while (index < tokens.length && tokens[index] !== ']') list.push(go())
-      index++
-      return list.length === 0 ? unit : Object.freeze(list)
-    }
+  const tokenGen = lex(is)
+  let currentToken = null
+  const nextToken = () => {
+    const { done, value } = tokenGen.next()
+    currentToken = done ? null : value
   }
-
+  nextToken()
+  const go = () => {
+    const token = currentToken
+    if (token === null) return null
+    nextToken()
+    if (token !== '[') return token
+    const list = []
+    while (currentToken !== ']') list.push(go())
+    nextToken()
+    return list.length === 0 ? unit : Object.freeze(list)
+  }
   return go
 }
 
