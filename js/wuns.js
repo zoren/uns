@@ -2,42 +2,43 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error('assert failed: ' + msg)
 }
 
-const tuple = (...args) => Object.freeze(args)
-const unit = tuple()
-
 const isWhitespace = (c) => c === ' ' || c === '\n'
 const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
 
-export const makeParser = (inputString) => {
+const lex = function* (s) {
+  let index = 0
+  while (index < s.length) {
+    const tokStart = index
+    const c = s[index++]
+    if (isWhitespace(c)) continue
+    if (c === '[' || c === ']') {
+      yield c
+      continue
+    }
+    assert(isSymbolChar(c), `illegal character ${c}`)
+    while (index < s.length && isSymbolChar(s[index])) index++
+    yield s.slice(tokStart, index)
+  }
+}
+
+const tuple = (...args) => Object.freeze(args)
+const unit = tuple()
+
+export const makeParser = (is) => {
+  const tokens = [...lex(is)]
   let index = 0
   const go = () => {
     while (true) {
-      if (index >= inputString.length) return null
-      const startIndex = index
-      const firstChar = inputString[index]
+      if (index >= tokens.length) return null
+      const token = tokens[index]
       index++
-      if (isWhitespace(firstChar)) continue
-      if (firstChar === '[') {
+      if (token === '[') {
         const list = []
-        while (true) {
-          if (index >= inputString.length) break
-          const c = inputString[index]
-          if (isWhitespace(c)) {
-            index++
-            continue
-          }
-          if (c === ']') {
-            index++
-            break
-          }
-          list.push(go())
-        }
+        while (index < tokens.length && tokens[index] !== ']') list.push(go())
+        index++
         return list.length === 0 ? unit : Object.freeze(list)
       }
-      assert(isSymbolChar(firstChar), `illegal character ${firstChar}`)
-      while (index < inputString.length && isSymbolChar(inputString[index]))
-        index++
-      return inputString.slice(startIndex, index)
+      return token
     }
   }
 
