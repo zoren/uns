@@ -3,7 +3,7 @@ const assert = (cond, msg) => {
 }
 
 const isWhitespace = (c) => c === ' ' || c === '\n'
-const isSymbolChar = (c) => /[a-z0-9.=]|-/.test(c)
+const isWordChar = (c) => /[a-z0-9.=]|-/.test(c)
 
 const lexerFromString = (s) => {
   let index = 0
@@ -13,8 +13,8 @@ const lexerFromString = (s) => {
       const c = s[index++]
       if (isWhitespace(c)) continue
       if (c === '[' || c === ']') return c
-      assert(isSymbolChar(c), `illegal character ${c}`)
-      while (index < s.length && isSymbolChar(s[index])) index++
+      assert(isWordChar(c), `illegal character ${c}`)
+      while (index < s.length && isWordChar(s[index])) index++
       return s.slice(tokStart, index)
     }
     return null
@@ -25,16 +25,17 @@ const tuple = (...args) => Object.freeze(args)
 const unit = tuple()
 
 const makeParserFromLexer = (lexNext) => {
-  let currentToken = lexNext()
-  const nextToken = () => (currentToken = lexNext())
+  let token = lexNext()
+  const nextToken = () => (token = lexNext())
   const go = () => {
-    const token = currentToken
     if (token === null) return null
-    nextToken()
-    if (token !== '[') return token
+    {
+      const peekTok = token
+      nextToken()
+      if (peekTok !== '[') return peekTok
+    }
     const list = []
     while (true) {
-      const token = currentToken
       if (token === null || token === ']') break
       list.push(go())
     }
@@ -55,7 +56,8 @@ export const print = (x) => {
   throw new Error(`cannot print ${x}`)
 }
 
-const continueSymbol = Symbol.for('wuns-continue')
+const symbolContinue = Symbol.for('wuns-continue')
+const symbolFuncOrMacro = Symbol.for('wuns-func-or-macro')
 
 export const makeEvaluator = (funcEnv) => {
   const wunsEval = (form, env) => {
@@ -68,6 +70,7 @@ export const makeEvaluator = (funcEnv) => {
       }
 
     assert(Array.isArray(form), `cannot eval ${form} expected string or array`)
+    if (form.length === 0) return unit
     const [firstWord, ...args] = form
     switch (firstWord) {
       case 'quote':
@@ -84,17 +87,18 @@ export const makeEvaluator = (funcEnv) => {
         while (true) {
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
           const elast = wunsEval(bodies.at(-1), inner)
-          if (firstWord !== 'loop' || !elast[continueSymbol]) return elast
+          if (firstWord !== 'loop' || !elast[symbolContinue]) return elast
           for (let i = 0; i < elast.length; i++)
             varValues.set(bindings[i * 2], elast[i])
         }
       }
       case 'cont': {
         const contArgs = args.map((a) => wunsEval(a, env))
-        contArgs[continueSymbol] = true
+        contArgs[symbolContinue] = true
         return Object.freeze(contArgs)
       }
-      case 'func': {
+      case 'func':
+      case 'macro': {
         const [fname, origParams, ...bodies] = args
         let params = origParams
         let restParam = null
@@ -111,19 +115,16 @@ export const makeEvaluator = (funcEnv) => {
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
           return wunsEval(bodies.at(-1), inner)
         }
+        f[symbolFuncOrMacro] = firstWord
         funcEnv.set(fname, f)
         return unit
       }
-      case 'mac': {
-        const [fname, ...margs] = args
-        const macro = funcEnv.get(fname)
-        assert(macro, `function ${fname} not found for macro call`)
-        return wunsEval(macro(...margs), env)
-      }
     }
-    const func = funcEnv.get(firstWord)
-    assert(func, `function ${firstWord} not found`)
-    return func(...args.map((arg) => wunsEval(arg, env)))
+    const funcOrMacro = funcEnv.get(firstWord)
+    assert(funcOrMacro, `function ${firstWord} not found`)
+    if (funcOrMacro[symbolFuncOrMacro] === 'macro')
+      return wunsEval(funcOrMacro(...args), env)
+    return funcOrMacro(...args.map((arg) => wunsEval(arg, env)))
   }
   return wunsEval
 }

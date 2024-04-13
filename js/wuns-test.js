@@ -51,6 +51,26 @@ for (const [expected, input] of printTests) {
   )
 }
 
+const mkFuncEnv = () => {
+  const funcEnv = new Map()
+  // would be cool to do in a host-func special form
+  funcEnv.set('add', (a, b) => String(Number(a) + Number(b)))
+  funcEnv.set('sub', (a, b) => String(Number(a) - Number(b)))
+  funcEnv.set('eq', (a, b) => String(Number(Boolean(Number(a) === Number(b)))))
+  funcEnv.set('lt', (a, b) => String(Number(Boolean(Number(a) < Number(b)))))
+
+  funcEnv.set('size', (a) => String(Number(a.length)))
+  funcEnv.set('nth', (v, i) => String(v[Number(i)]))
+  funcEnv.set('list', (...args) => args)
+  funcEnv.set('concat', (...args) => args.flat())
+
+  funcEnv.set('abort', (w) => {
+    throw new Error(print(w))
+  })
+
+  return funcEnv
+}
+
 const tests = `
 [quote 7] [.= 7]
 [quote 007] [.= 007]
@@ -81,38 +101,50 @@ const tests = `
 [func list [.. args] args] [.= []]
 [list [quote 1] [quote 2] [quote 3]] [.= [1 2 3]]
 
-[func if-not [cond then else]
+[macro if-not [cond then else]
   [list [quote if] cond else then]]
-[mac if-not [quote 0] [quote t] [quote f]] [.= t]
+[if-not [quote 0] [quote t] [quote f]] [.= t]
 `
-const funcEnv = new Map()
-// would be cool to do in a host-func special form
-funcEnv.set('add', (a, b) => String(Number(a) + Number(b)))
-funcEnv.set('sub', (a, b) => String(Number(a) - Number(b)))
+{
+  const funcEnv = mkFuncEnv()
+  const wunsEval = makeEvaluator(funcEnv)
+  const parse = makeParser(tests)
+
+  let prev = null
+  let eprev = null
+
+  let asserts = 0
+  while (true) {
+    const form = parse()
+    if (form === null) break
+    if (Array.isArray(form) && form[0] === '.=') {
+      const [_, second] = form
+      if (prev === null) continue
+      const peprev = print(eprev)
+      const pesec = print(second)
+      assert(
+        peprev === pesec,
+        `for ${print(prev)} expected '${pesec}' but got '${peprev}'`,
+      )
+      asserts++
+      continue
+    }
+
+    prev = form
+    eprev = wunsEval(form)
+  }
+  console.log('ran eval', asserts, 'asserts')
+}
+
+import fs from 'fs'
+
+const selfWuns = fs.readFileSync('examples/self.wuns', 'utf8')
+const funcEnv = mkFuncEnv()
+
 const wunsEval = makeEvaluator(funcEnv)
-const parse = makeParser(tests)
-
-let prev = null
-let eprev = null
-
-let asserts = 0
+const parse = makeParser(selfWuns)
 while (true) {
   const form = parse()
   if (form === null) break
-  if (Array.isArray(form) && form[0] === '.=') {
-    const [_, second] = form
-    if (prev === null) continue
-    const peprev = print(eprev)
-    const pesec = print(second)
-    assert(
-      peprev === pesec,
-      `for ${print(prev)} expected '${pesec}' but got '${peprev}'`,
-    )
-    asserts++
-    continue
-  }
-
-  prev = form
-  eprev = wunsEval(form)
+  wunsEval(form)
 }
-console.log('ran eval', asserts, 'asserts')

@@ -1,0 +1,90 @@
+[func inc [x] [add x [quote 1]]]
+
+[func dec [x] [sub x [quote 1]]]
+
+[func not [c] [eqz c]]
+
+[func is-odd [x] [bit-and x [quote 1]]]
+
+[func is-even [x] [not [is-odd x]]]
+
+[func is-negative [x] [lt x [quote 0]]]
+
+[func is-whitespace [c]
+  [bit-or [eq c [quote 32]] [eq c [quote 10]]]]
+
+[func is-square-bracket [c]
+  [bit-or [eq c [quote 91]] [eq c [quote 93]]]]
+
+[func is-between-inclusive [lower c upper]
+  [bit-and [le lower c] [le c upper]]]
+
+[func is-digit [c] [is-between-inclusive [quote 48] c [quote 57]]]
+
+[func is-ident-char [c]
+  [bit-or
+    [is-between-inclusive [quote 97] c [quote 122]]
+    [bit-or
+      [is-digit c]
+      [is-between-inclusive [quote 45] c [quote 46]]
+      ]]]
+
+[macro when-not [cond .. forms]
+  [list
+    [quote if] cond
+    []
+    [concat [list [quote do]] forms]]]
+
+[func assert [cond .. msg]
+  [quasiquote
+    [when-not [unquote cond]
+      [print [unquote msg]]
+      [abort [quote ass-fail]]]]]
+
+[func get-token [start end]
+  [assert [lt start end] empty token]
+  [loop [i start]
+    [if [ge i end]
+      [list [quote 0] i]
+
+      [let [c [load8u start]]
+        [ifs
+          [is-whitespace c]
+          [recur [inc i]]
+
+          [is-square-bracket c]
+          [list c [inc start]]
+
+          [is-ident-char c]
+          [loop [j [inc i]]
+            [if [and [lt j end] [is-ident-char [load8u j]]]
+              [cont [inc j]]
+              [list [quote 97] j]]]
+
+          [abort unexpected-character]]]]]]
+
+[func sum-num-words [codes]
+  [let [s [size codes]]
+    [loop [i [quote 0]
+          sum [quote 0]]
+      [if [lt i s]
+        [cont [inc i] [add sum [nth codes i]]]
+        sum]]]]
+
+[macro do [.. forms]
+  [concat [list [quote let] []] forms]]
+
+[macro when [cond .. forms]
+  [list
+    [quote if] cond
+    [concat [list [quote do]] forms]
+    []]]
+
+[macro test-assert [c]
+  [when-not c
+    [abort c]]]
+
+[test-assert
+  [eq
+    [sum-num-words [quote [1 20 300]]]
+    [quote 321]]]
