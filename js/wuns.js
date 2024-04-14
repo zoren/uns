@@ -3,7 +3,7 @@ const assert = (cond, msg) => {
 }
 
 const isWhitespace = (c) => c === ' ' || c === '\n'
-const isWordChar = (c) => /[a-z0-9.=]|-/.test(c)
+export const isWordChar = (c) => /[a-z0-9.=]|-/.test(c)
 
 const lexerFromString = (s) => {
   let index = 0
@@ -18,6 +18,16 @@ const lexerFromString = (s) => {
       return s.slice(tokStart, index)
     }
     return null
+  }
+}
+
+const lexToArr = (s) => {
+  const lex = lexerFromString(s)
+  const arr = []
+  while (true) {
+    const tok = lex()
+    if (tok === null) return arr
+    arr.push(tok)
   }
 }
 
@@ -43,6 +53,56 @@ const makeParserFromLexer = (lexNext) => {
     return list.length === 0 ? unit : Object.freeze(list)
   }
   return go
+}
+
+const parseMonadic1 = (tokens, i = 0) => {
+  if (i >= tokens.length) throw new Error('expected a token')
+  const go = () => {
+    const token = tokens[i++]
+    assert(token !== ']', 'unexpected ]')
+    if (token !== '[') return token
+    const list = []
+    while (true) {
+      if (i >= tokens.length) return list
+      if (tokens[i] === ']') {
+        i++
+        return list
+      }
+      list.push(go())
+    }
+  }
+  return [go(), i]
+}
+
+const parseMonadic2 = (tokens, i = 0) => {
+  if (i >= tokens.length) throw new Error('expected a token')
+  const token = tokens[i]
+  assert(token !== ']', 'unexpected ]')
+  if (token !== '[') return [token, i + 1]
+  let list = []
+  let j = i + 1
+  while (true) {
+    if (j >= tokens.length) return [list, j]
+    if (tokens[j] === ']') return [list, j + 1]
+    const [f, k] = parseMonadic2(tokens, j)
+    // list.push(f)
+    list = [...list, f]
+    j = k
+  }
+}
+
+export const parse1 = (s) => parseMonadic2(lexToArr(s))[0]
+
+export const parseAll = (s) => {
+  const tokens = lexToArr(s)
+  const forms = []
+  let i = 0
+  while (i < tokens.length) {
+    const [form, j] = parseMonadic1(tokens, i)
+    forms.push(form)
+    i = j
+  }
+  return forms
 }
 
 export const makeParser = (is) => {

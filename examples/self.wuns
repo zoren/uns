@@ -1,3 +1,5 @@
+[macro comment [.. -] []]
+
 [func inc [x] [add x [quote 1]]]
 
 [func dec [x] [sub x [quote 1]]]
@@ -35,31 +37,87 @@
     []
     [concat [list [quote do]] forms]]]
 
-[func assert [cond .. msg]
-  [quasiquote
-    [when-not [unquote cond]
-      [print [unquote msg]]
-      [abort [quote ass-fail]]]]]
+[macro if-not [cond then else]
+  [list
+    [quote if] cond
+    else
+    then
+    ]]
 
-[func get-token [start end]
-  [assert [lt start end] empty token]
+[func quote-all [l]
+  [let [s [size l]
+        qq [quote quote]]
+    [loop [i [quote 0]
+           res [list]]
+      [if [lt i s]
+        [cont [inc i] [concat res [list qq [nth l i]]]]
+        res]]]]
+
+[macro assert [cond .. lmsg]
+  [concat
+    [list [quote when-not] cond]
+    []
+    [list [quote abort] [quote ass-fail]]]]
+
+[macro ifs [.. clauses]
+  [let [s [size clauses]]
+    [assert [is-odd s] ifs requires an odd number of forms]
+    [loop [res [nth clauses [dec s]]
+           i [dec s]]
+      [if i
+        [cont
+          [list [quote if]
+            [nth clauses [sub i [quote 2]]]
+            [nth clauses [dec i]]
+            res]
+          [sub i [quote 2]]]
+        res]]]]
+
+[macro and [.. clauses]
+  [let [s [size clauses]]
+    [ifs
+      [eq s [quote 0]]]
+      [quote 1]
+
+      [eq s [quote 1]]
+      [nth clauses 0]
+
+    [loop [i [sub s [quote 2]]
+           r [nth clauses [dec s]]]
+      [if [eq i [dec [quote 0]]]
+        r
+        [cont
+          [dec i]
+          [list [quote if]
+            [nth clauses i]
+            r
+            [quote 0]
+        ]]
+      ]
+    
+    ]
+  ]
+]
+
+[func get-token [code-points start end]
   [loop [i start]
     [if [ge i end]
-      [list [quote 0] i]
+      [list [quote eof] i i]
 
-      [let [c [load8u start]]
+      [let [tok-start i
+            c [nth code-points i]]
         [ifs
           [is-whitespace c]
-          [recur [inc i]]
+          [cont [inc i]]
 
           [is-square-bracket c]
-          [list c [inc start]]
+          [list [word [list c]] i [inc i]]
 
           [is-ident-char c]
           [loop [j [inc i]]
-            [if [and [lt j end] [is-ident-char [load8u j]]]
+            [if [if [lt j end] [is-ident-char [nth code-points j]] [quote 0]]
               [cont [inc j]]
-              [list [quote 97] j]]]
+              [list [quote ident] tok-start j]]]
 
           [abort unexpected-character]]]]]]
 
@@ -88,3 +146,89 @@
   [eq
     [sum-num-words [quote [1 20 300]]]
     [quote 321]]]
+
+[func lex [code-points]
+  [let [s [size code-points]]
+    [loop [i [quote 0]
+           tokens [quote []]]
+      [if [ge i s]
+        tokens
+        [let [tup [get-token code-points i s]
+              c [nth tup [quote 0]]
+              start [nth tup [quote 1]]
+              end [nth tup [quote 2]]]
+            [if [eq c [quote eof]]
+              tokens
+              [cont end [concat tokens
+                [list [if [eq c [quote ident]]
+                        [word [slice code-points start end]]
+                        c]]]]]]]]]]
+
+[log [lex [quote [97 98]]]]
+
+[func first [l] [nth l [quote 0]]]
+
+[func second [l] [nth l [quote 1]]]
+
+[func parse1 [tokens i]
+  [when [ge i [size tokens]]
+    [abort [quote unexpected-end-of-input]]]
+  [let [token [nth tokens i]]
+    [if-not [eq token [word [quote [91]]]]
+
+      [list token [inc i]]
+      [loop [ls []
+             j [inc i]]
+        [ifs
+          [ge j [size tokens]]
+          [list ls j]
+
+          [eq [nth tokens j] [word [quote [93]]]]
+          [list ls [inc j]]
+
+          [let [res [parse1 tokens j]
+                f [first res]
+                k [second res]]
+            [cont [concat ls [list f]] k]]]]
+
+      ]]]
+
+[log
+  [parse1
+   [lex [quote [91 97 98 32 48 93 32]]]
+   [quote 0]
+   ]]
+
+[func parse-chars [code-points]
+  [first [parse1 [lex code-points] [quote 0]]]]
+
+[func join [l sep]
+  [let [s [size l]]
+    [loop [i [quote 0]
+           res [quote []]]
+      [if [lt i s]
+        [cont [inc i] [concat res [list [nth l i] sep]]]
+        [concat-words res]]]]]
+
+[func print [f]
+  [if [is-word f]
+    f
+    [let [s [size f]]
+      [concat-words
+        [word [quote 91]]
+        [if [eq s [quote 0]]
+          [word []]
+          [loop [i [quote 0]
+                 res []]
+            [if [lt i [dec s]]
+              [cont [inc i] [concat res [print [nth f i]] [word [quote 32]]]]
+              [concat-words [concat res [print [nth f [dec s]]]]]]]]
+        [word [quote 93]]]]
+        
+      ]
+      
+      ]
+
+[log [quote print-testing]]
+[log [print []]]
+[log [print [quote [f 3 [4 df]]]]]

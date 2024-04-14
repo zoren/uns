@@ -1,4 +1,4 @@
-import { makeParser, print, makeEvaluator } from './wuns.js'
+import { makeParser, print, makeEvaluator, parse1, parseAll } from './wuns.js'
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error('test failed ' + msg)
@@ -20,7 +20,7 @@ const parseTests = [
 ]
 
 for (const [expected, input] of parseTests) {
-  const actual = makeParser(input)()
+  const actual = parse1(input)
   const jsonExpected = JSON.stringify(expected)
   const jsonActual = JSON.stringify(actual)
   assert(
@@ -44,25 +44,59 @@ const printTests = [
 ]
 
 for (const [expected, input] of printTests) {
-  const actual = print(makeParser(input)())
+  const actual = print(parse1(input))
   assert(
     expected === actual,
     `for '${input}' expected ${expected} but got ${actual}`,
   )
 }
 
+const isDecIntWord = (s) => /^[0-9]+$/.test(s)
+
 const mkFuncEnv = () => {
   const funcEnv = new Map()
   // would be cool to do in a host-func special form
   funcEnv.set('add', (a, b) => String(Number(a) + Number(b)))
   funcEnv.set('sub', (a, b) => String(Number(a) - Number(b)))
-  funcEnv.set('eq', (a, b) => String(Number(Boolean(Number(a) === Number(b)))))
+
+  funcEnv.set('bit-and', (a, b) => String(Number(a) & Number(b)))
+  funcEnv.set('bit-or', (a, b) => String(Number(a) | Number(b)))
+
+  funcEnv.set('eq', (a, b) => String(Number(Boolean(a === b))))
   funcEnv.set('lt', (a, b) => String(Number(Boolean(Number(a) < Number(b)))))
+  funcEnv.set('gt', (a, b) => String(Number(Boolean(Number(a) > Number(b)))))
+  funcEnv.set('ge', (a, b) => String(Number(Boolean(Number(a) >= Number(b)))))
+  funcEnv.set('le', (a, b) => String(Number(Boolean(Number(a) <= Number(b)))))
 
   funcEnv.set('size', (a) => String(Number(a.length)))
-  funcEnv.set('nth', (v, i) => String(v[Number(i)]))
+  funcEnv.set('nth', (v, i) => {
+    const ni = Number(i)
+    if (ni < 0 || ni >= v.length) {
+      console.log('nth error', ni, v.length, i, v)
+      throw new Error('index out of bounds: ' + i)
+    }
+    return v[ni]
+  })
+  funcEnv.set('slice', (v, i, j) => v.slice(Number(i), Number(j)))
   funcEnv.set('list', (...args) => args)
   funcEnv.set('concat', (...args) => args.flat())
+  funcEnv.set('concat-words', (ws) => ws.join(''))
+  funcEnv.set('is-word', (s) => typeof s === 'string')
+  funcEnv.set('word', (cs) => {
+    // assert(is)
+    assert(Array.isArray(cs), 'word expects array')
+    assert(cs.length > 0, 'word expects non-empty array')
+    return cs
+      .map((c) => {
+        if (typeof c !== 'string') throw new Error('word expects words')
+        assert(isDecIntWord(c), 'word expects word chars' + c)
+        const s = String.fromCharCode(parseInt(c, 10))
+        // assert(isWordChar(s), 'word expects word chars: '+s)
+        return s
+      })
+      .join('')
+  })
+  funcEnv.set('log', (a) => console.log(print(a)) || a)
 
   funcEnv.set('abort', (w) => {
     throw new Error(print(w))
@@ -108,14 +142,13 @@ const tests = `
 {
   const funcEnv = mkFuncEnv()
   const wunsEval = makeEvaluator(funcEnv)
-  const parse = makeParser(tests)
+  const forms = parseAll(tests)
 
   let prev = null
   let eprev = null
 
   let asserts = 0
-  while (true) {
-    const form = parse()
+  for (const form of forms) {
     if (form === null) break
     if (Array.isArray(form) && form[0] === '.=') {
       const [_, second] = form
@@ -142,9 +175,31 @@ const selfWuns = fs.readFileSync('examples/self.wuns', 'utf8')
 const funcEnv = mkFuncEnv()
 
 const wunsEval = makeEvaluator(funcEnv)
-const parse = makeParser(selfWuns)
-while (true) {
-  const form = parse()
+const forms = parseAll(selfWuns)
+
+for (const form of forms) {
   if (form === null) break
   wunsEval(form)
+}
+
+const stringToWunsList = (s) => {
+  const chars = s.split('')
+  const words = chars.map((c) => String(c.charCodeAt(0)))
+  return words
+}
+const parseChars = funcEnv.get('parse-chars')
+console.log(
+  'parse-chars',
+  parseChars(stringToWunsList('[if [quote 0] [quote t] [quote f]]')),
+)
+
+for (const [expected, input] of parseTests) {
+  console.log('parse self!', expected, input)
+  const actual = parseChars(stringToWunsList(input))
+  const jsonExpected = JSON.stringify(expected)
+  const jsonActual = JSON.stringify(actual)
+  assert(
+    jsonExpected === jsonActual,
+    `for '${input}' expected ${jsonExpected} but got ${jsonActual}`,
+  )
 }
