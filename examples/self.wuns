@@ -4,6 +4,8 @@
 
 [func dec [x] [sub x [quote 1]]]
 
+[func eqz [x] [eq x [quote 0]]]
+
 [func not [c] [eqz c]]
 
 [func is-odd [x] [bit-and x [quote 1]]]
@@ -31,12 +33,6 @@
       [is-between-inclusive [quote 45] c [quote 46]]
       ]]]
 
-[macro when-not [cond .. forms]
-  [list
-    [quote if] cond
-    []
-    [concat [list [quote do]] forms]]]
-
 [macro if-not [cond then else]
   [list
     [quote if] cond
@@ -57,7 +53,7 @@
   [concat
     [list [quote when-not] cond]
     []
-    [list [quote abort] [quote ass-fail]]]]
+    [list [quote abort] [list [quote quote] [list [quote ass-fail] lmsg]]]]]
 
 [macro ifs [.. clauses]
   [let [s [size clauses]]
@@ -72,32 +68,6 @@
             res]
           [sub i [quote 2]]]
         res]]]]
-
-[macro and [.. clauses]
-  [let [s [size clauses]]
-    [ifs
-      [eq s [quote 0]]]
-      [quote 1]
-
-      [eq s [quote 1]]
-      [nth clauses 0]
-
-    [loop [i [sub s [quote 2]]
-           r [nth clauses [dec s]]]
-      [if [eq i [dec [quote 0]]]
-        r
-        [cont
-          [dec i]
-          [list [quote if]
-            [nth clauses i]
-            r
-            [quote 0]
-        ]]
-      ]
-    
-    ]
-  ]
-]
 
 [func get-token [code-points start end]
   [loop [i start]
@@ -138,14 +108,15 @@
     [concat [list [quote do]] forms]
     []]]
 
-[macro test-assert [c]
-  [when-not c
-    [abort c]]]
+[macro when-not [cond .. forms]
+  [list
+    [quote if] cond
+    []
+    [concat [list [quote do]] forms]]]
 
-[test-assert
-  [eq
-    [sum-num-words [quote [1 20 300]]]
-    [quote 321]]]
+[func first [l] [nth l [quote 0]]]
+[func second [l] [nth l [quote 1]]]
+[func third [l] [nth l [quote 2]]]
 
 [func lex [code-points]
   [let [s [size code-points]]
@@ -154,28 +125,22 @@
       [if [ge i s]
         tokens
         [let [tup [get-token code-points i s]
-              c [nth tup [quote 0]]
-              start [nth tup [quote 1]]
-              end [nth tup [quote 2]]]
+              c [first tup]
+              end [third tup]]
             [if [eq c [quote eof]]
               tokens
               [cont end [concat tokens
                 [list [if [eq c [quote ident]]
-                        [word [slice code-points start end]]
+                        [word [slice code-points [second tup] end]]
                         c]]]]]]]]]]
-
-[log [lex [quote [97 98]]]]
-
-[func first [l] [nth l [quote 0]]]
-
-[func second [l] [nth l [quote 1]]]
 
 [func parse1 [tokens i]
   [when [ge i [size tokens]]
     [abort [quote unexpected-end-of-input]]]
-  [let [token [nth tokens i]]
-    [if-not [eq token [word [quote [91]]]]
-
+  [let [token [nth tokens i]
+        start-bracket [word [quote [91]]]
+        end-bracket [word [quote [93]]]]
+    [if-not [eq token start-bracket]
       [list token [inc i]]
       [loop [ls []
              j [inc i]]
@@ -183,52 +148,114 @@
           [ge j [size tokens]]
           [list ls j]
 
-          [eq [nth tokens j] [word [quote [93]]]]
+          [eq [nth tokens j] end-bracket]
           [list ls [inc j]]
 
           [let [res [parse1 tokens j]
                 f [first res]
                 k [second res]]
-            [cont [concat ls [list f]] k]]]]
+            [cont [concat ls [list f]] k]]]]]]]
 
-      ]]]
-
-[log
-  [parse1
-   [lex [quote [91 97 98 32 48 93 32]]]
-   [quote 0]
-   ]]
+[func parse-all [code-points]
+  [let [tokens [lex code-points]
+        n-toks [size tokens]]
+    [loop [i [quote 0]
+           forms []]
+      [if [ge i n-toks]
+        forms
+        [let [res1 [parse1 tokens i]
+              f [first res1]
+              k [second res1]]
+          [cont k [concat forms [list f]]]]]]]]
 
 [func parse-chars [code-points]
   [first [parse1 [lex code-points] [quote 0]]]]
-
-[func join [l sep]
-  [let [s [size l]]
-    [loop [i [quote 0]
-           res [quote []]]
-      [if [lt i s]
-        [cont [inc i] [concat res [list [nth l i] sep]]]
-        [concat-words res]]]]]
 
 [func print [f]
   [if [is-word f]
     f
     [let [s [size f]]
       [concat-words
-        [word [quote 91]]
+        [word [quote [91]]
         [if [eq s [quote 0]]
           [word []]
           [loop [i [quote 0]
                  res []]
             [if [lt i [dec s]]
-              [cont [inc i] [concat res [print [nth f i]] [word [quote 32]]]]
-              [concat-words [concat res [print [nth f [dec s]]]]]]]]
-        [word [quote 93]]]]
-        
-      ]
-      
-      ]
+              [cont [inc i] [concat res [print [nth f i]] [wfcc 32]]]
+              [concat-words res [print [nth f [dec s]]]]]]]
+        [word [quote [93]]]]]]]]
 
-[log [quote print-testing]]
-[log [print []]]
-[log [print [quote [f 3 [4 df]]]]]
+[func lookup [ctx sym]
+  [let [s [size ctx]]
+    [loop [i [quote 0]]
+      [if [ge i s]
+        [quote symbol-not-found]
+        [let [k [nth ctx i]
+              v [nth ctx [inc i]]]
+          [if [eq k sym]
+            [tup v]
+            [cont [add i [quote 2]]]]]]]]]
+
+[func analyse [ctx form]
+  [log [list [quote analysing] form [is-word form]]]
+  [if [is-word form]
+    [lookup ctx form]
+    [let [s [size form]]
+      [if [eq s [quote 0]]
+        []
+        [let [first-word [first form]
+              args [slice form [quote 1] s]
+              n-of-args [size args]]
+          [when-not [is-word first-word]
+            [abort [quote non-symbol-in-form]]]
+          [ifs
+            [eq first-word [quote quote]]
+            [do
+              [log [quote quoteeling]]
+              [when-not [eq n-of-args [quote 1]]
+                [abort [quote quote-requires-one-arg]]]
+              []]
+
+            [eq first-word [quote if]]
+            [do
+              [when-not [eq n-of-args [quote 3]]
+                [abort [quote if-requires-three-args]]]
+              [let [cond [analyse ctx [first args]]
+                    then [analyse ctx [second args]]
+                    else [analyse ctx [third args]]]
+                []]
+              ]
+
+            [eq first-word [quote let]]
+            [do
+              [when [lt n-of-args [quote 2]]
+                [abort [quote let-requires-at-least-two-args]]]
+              [let [bindings [first args]
+                    bodies [slice args [quote 1] n-of-args]]
+                [when-not [is-list bindings]
+                  [abort [quote let-requires-a-list-of-bindings]]]
+                [let [n-of-bindings [size bindings]]
+                  [when-not [is-even n-of-bindings]
+                    [abort [quote let-requires-an-even-number-of-bindings]]]]
+                
+
+              ]
+              ]
+
+            []
+            
+            ]]]]]]
+
+[comment
+  [analyse [] [quote [let b c d ]]]
+  
+  ]
+
+
+[comment
+  [analyse [] [quote no-such]]
+
+  [analyse [] [quote [[]]]]
+  
+  ]

@@ -181,7 +181,7 @@ export const makeEvaluator = (funcEnv) => {
       }
     }
     const funcOrMacro = funcEnv.get(firstWord)
-    assert(funcOrMacro, `function ${firstWord} not found`)
+    assert(funcOrMacro, `function ${firstWord} not found ${print(form)}`)
     if (funcOrMacro[symbolFuncOrMacro] === 'macro')
       return wunsEval(funcOrMacro(...args), env)
     return funcOrMacro(...args.map((arg) => wunsEval(arg, env)))

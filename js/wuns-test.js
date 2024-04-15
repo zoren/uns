@@ -52,7 +52,7 @@ for (const [expected, input] of printTests) {
 }
 
 const isDecIntWord = (s) => /^[0-9]+$/.test(s)
-
+const boolToWord = (b) => (b ? '1' : '0')
 const mkFuncEnv = () => {
   const funcEnv = new Map()
   // would be cool to do in a host-func special form
@@ -62,11 +62,14 @@ const mkFuncEnv = () => {
   funcEnv.set('bit-and', (a, b) => String(Number(a) & Number(b)))
   funcEnv.set('bit-or', (a, b) => String(Number(a) | Number(b)))
 
-  funcEnv.set('eq', (a, b) => String(Number(Boolean(a === b))))
-  funcEnv.set('lt', (a, b) => String(Number(Boolean(Number(a) < Number(b)))))
-  funcEnv.set('gt', (a, b) => String(Number(Boolean(Number(a) > Number(b)))))
-  funcEnv.set('ge', (a, b) => String(Number(Boolean(Number(a) >= Number(b)))))
-  funcEnv.set('le', (a, b) => String(Number(Boolean(Number(a) <= Number(b)))))
+  funcEnv.set('eq', (a, b) => boolToWord(a === b))
+  funcEnv.set('lt', (a, b) => boolToWord(Number(a) < Number(b)))
+  funcEnv.set('gt', (a, b) => boolToWord(Number(a) > Number(b)))
+  funcEnv.set('ge', (a, b) => boolToWord(Number(a) >= Number(b)))
+  funcEnv.set('le', (a, b) => boolToWord(Number(a) <= Number(b)))
+
+  funcEnv.set('is-word', (s) => boolToWord(typeof s === 'string'))
+  funcEnv.set('is-list', (f) => boolToWord(Array.isArray(f)))
 
   funcEnv.set('size', (a) => String(Number(a.length)))
   funcEnv.set('nth', (v, i) => {
@@ -77,19 +80,21 @@ const mkFuncEnv = () => {
     }
     return v[ni]
   })
-  funcEnv.set('slice', (v, i, j) => v.slice(Number(i), Number(j)))
-  funcEnv.set('list', (...args) => args)
-  funcEnv.set('concat', (...args) => args.flat())
-  funcEnv.set('concat-words', (ws) => ws.join(''))
-  funcEnv.set('is-word', (s) => typeof s === 'string')
+  funcEnv.set('slice', (v, i, j) =>
+    Object.freeze(v.slice(Number(i), Number(j))),
+  )
+  funcEnv.set('list', (...args) => Object.freeze(args))
+  funcEnv.set('concat', (...args) => Object.freeze(args.flat()))
+  funcEnv.set('concat-words', (...ws) => ws.join(''))
+
   funcEnv.set('word', (cs) => {
     // assert(is)
-    assert(Array.isArray(cs), 'word expects array')
-    assert(cs.length > 0, 'word expects non-empty array')
+    assert(Array.isArray(cs), 'word expects array: ' + cs)
+    // assert(cs.length > 0, 'word expects non-empty array')
     return cs
       .map((c) => {
         if (typeof c !== 'string') throw new Error('word expects words')
-        assert(isDecIntWord(c), 'word expects word chars' + c)
+        assert(isDecIntWord(c), 'word expects word chars: ' + c)
         const s = String.fromCharCode(parseInt(c, 10))
         // assert(isWordChar(s), 'word expects word chars: '+s)
         return s
@@ -194,7 +199,6 @@ console.log(
 )
 
 for (const [expected, input] of parseTests) {
-  console.log('parse self!', expected, input)
   const actual = parseChars(stringToWunsList(input))
   const jsonExpected = JSON.stringify(expected)
   const jsonActual = JSON.stringify(actual)
@@ -202,4 +206,37 @@ for (const [expected, input] of parseTests) {
     jsonExpected === jsonActual,
     `for '${input}' expected ${jsonExpected} but got ${jsonActual}`,
   )
+}
+
+const parseAllWuns = funcEnv.get('parse-all')
+const selfForms = parseAllWuns(stringToWunsList(selfWuns))
+if (selfForms.length !== forms.length) {
+  console.log('selfForms', selfForms.length)
+  console.log('forms', forms.length)
+  throw new Error('parse-all failed')
+}
+
+for (let i = 0; i < selfForms.length; i++) {
+  const selfForm = selfForms[i]
+  const form = forms[i]
+  if (JSON.stringify(selfForm) !== JSON.stringify(form)) {
+    console.log('selfForm', JSON.stringify(selfForm))
+    console.log('form', JSON.stringify(form))
+  }
+}
+
+const selfParse = JSON.stringify(selfForms)
+const expectedParse = JSON.stringify(forms)
+if (selfParse !== expectedParse) {
+  console.log('selfParse', selfParse)
+  console.log('expectedParse', expectedParse)
+  for (let i = 0; i < selfForms.length; i++) {
+    const selfForm = selfForms[i]
+    const form = forms[i]
+    if (JSON.stringify(selfForm) !== JSON.stringify(form)) {
+      console.log('selfForm', JSON.stringify(selfForm))
+      console.log('form', JSON.stringify(form))
+      throw new Error('parse-all failed')
+    }
+  }
 }
