@@ -62,20 +62,24 @@
 [macro if-not [cond then else]
   [list [quote if] cond else then]]
 
-[func quote-all [l]
-  [let [s [size l]
-        qq [quote quote]]
-    [loop [i [quote 0]
-           res [list]]
-      [if [lt i s]
-        [cont [inc i] [concat res [list qq [nth l i]]]]
-        res]]]]
+[macro do [.. forms]
+  [concat [list [quote let] []] forms]]
+
+[macro when [cond .. forms]
+  [list
+    [quote if] cond
+    [concat [list [quote do]] forms]
+    []]]
+
+[macro when-not [cond .. forms]
+  [list
+    [quote if] cond
+    []
+    [concat [list [quote do]] forms]]]
 
 [macro assert [cond .. lmsg]
-  [concat
-    [list [quote when-not] cond]
-    []
-    [list [quote abort] [list [quote quote] [list [quote ass-fail] lmsg]]]]]
+  [list [quote when-not] cond
+    [list [quote abort] [list [quote quote] [concat [list [quote assert-fail]] lmsg]]]]]
 
 [macro ifs [.. clauses]
   [let [s [size clauses]]
@@ -120,21 +124,6 @@
       [if [lt i s]
         [cont [inc i] [add sum [nth codes i]]]
         sum]]]]
-
-[macro do [.. forms]
-  [concat [list [quote let] []] forms]]
-
-[macro when [cond .. forms]
-  [list
-    [quote if] cond
-    [concat [list [quote do]] forms]
-    []]]
-
-[macro when-not [cond .. forms]
-  [list
-    [quote if] cond
-    []
-    [concat [list [quote do]] forms]]]
 
 [func lex [code-points]
   [let [s [size code-points]]
@@ -226,13 +215,14 @@
               args [slice form [quote 1] s]
               n-of-args [size args]]
           [when-not [is-word first-word]
-            [abort [quote non-symbol-in-form]]]
+            [abort [quote non-symbol-first-in-form]]]
           [ifs
             [eq first-word [quote quote]]
             [do
               [log [quote quoteeling]]
               [when-not [eq n-of-args [quote 1]]
                 [abort [quote quote-requires-one-arg]]]
+              [comment check if arg is a word and if it is decimal integer]
               []]
 
             [eq first-word [quote if]]
@@ -256,18 +246,18 @@
                 [let [n-of-bindings [size bindings]]
                   [when-not [is-even n-of-bindings]
                     [abort [quote let-requires-an-even-number-of-bindings]]]]
-                
+
 
               ]
               ]
 
             []
-            
+
             ]]]]]]
 
 [comment
   [analyse [] [quote [let b c d ]]]
-  
+
   ]
 
 
@@ -275,5 +265,5 @@
   [analyse [] [quote no-such]]
 
   [analyse [] [quote [[]]]]
-  
+
   ]
