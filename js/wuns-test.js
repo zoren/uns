@@ -203,10 +203,6 @@ const stringToWunsList = (s) => {
   return words
 }
 const parseChars = funcEnv.get('parse-chars')
-console.log(
-  'parse-chars',
-  parseChars(stringToWunsList('[if [quote 0] [quote t] [quote f]]')),
-)
 
 for (const [expected, input] of parseTests) {
   const actual = parseChars(stringToWunsList(input))

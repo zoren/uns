@@ -140,33 +140,38 @@
     [abort [quote unexpected-end-of-input]]]
   [let [token [nth tokens i]
         start-bracket [word [quote [91]]]
-        end-bracket [word [quote [93]]]]
+        end-bracket [word [quote [93]]]
+        s-toks [size tokens]]
     [if-not [eq token start-bracket]
       [list token [inc i]]
-      [let [ls [mutable-list]]
-        [loop [j [inc i]]
-          [ifs
-            [ge j [size tokens]]
-            [list [freeze ls] j]
+      [let
+        [ls [mutable-list]
+         new-j
+          [loop [j [inc i]]
+            [ifs
+              [ge j s-toks]
+              j
 
-            [eq [nth tokens j] end-bracket]
-            [list [freeze ls] [inc j]]
+              [eq [nth tokens j] end-bracket]
+              [inc j]
 
-            [let [res [parse1 tokens j]]
-              [push ls [first res]]
-              [cont [second res]]]]]]]]]
+              [let [res [parse1 tokens j]]
+                [push ls [first res]]
+                [cont [second res]]]]]]
+          [list [freeze ls] new-j]]]]]
 
 [func parse-all [code-points]
   [let [tokens [lex code-points]
         n-toks [size tokens]]
     [loop [i [quote 0]
-           forms []]
+           forms [mutable-list]]
       [if [ge i n-toks]
-        forms
+        [freeze forms]
         [let [res1 [parse1 tokens i]
               f [first res1]
               k [second res1]]
-          [cont k [concat forms [list f]]]]]]]]
+          [push forms f]
+          [cont k]]]]]]
 
 [func parse-chars [code-points]
   [first [parse1 [lex code-points] [quote 0]]]]
