@@ -143,19 +143,18 @@
         end-bracket [word [quote [93]]]]
     [if-not [eq token start-bracket]
       [list token [inc i]]
-      [loop [ls []
-             j [inc i]]
-        [ifs
-          [ge j [size tokens]]
-          [list ls j]
+      [let [ls [mutable-list]]
+        [loop [j [inc i]]
+          [ifs
+            [ge j [size tokens]]
+            [list [freeze ls] j]
 
-          [eq [nth tokens j] end-bracket]
-          [list ls [inc j]]
+            [eq [nth tokens j] end-bracket]
+            [list [freeze ls] [inc j]]
 
-          [let [res [parse1 tokens j]
-                f [first res]
-                k [second res]]
-            [cont [concat ls [list f]] k]]]]]]]
+            [let [res [parse1 tokens j]]
+              [push ls [first res]]
+              [cont [second res]]]]]]]]]
 
 [func parse-all [code-points]
   [let [tokens [lex code-points]
