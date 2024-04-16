@@ -21,16 +21,6 @@ const lexerFromString = (s) => {
   }
 }
 
-const lexToArr = (s) => {
-  const lex = lexerFromString(s)
-  const arr = []
-  while (true) {
-    const tok = lex()
-    if (tok === null) return arr
-    arr.push(tok)
-  }
-}
-
 const tuple = (...args) => Object.freeze(args)
 export const unit = tuple()
 
@@ -55,59 +45,22 @@ const makeParserFromLexer = (lexNext) => {
   return go
 }
 
-const parseMonadic1 = (tokens, i = 0) => {
-  if (i >= tokens.length) throw new Error('expected a token')
-  const go = () => {
-    const token = tokens[i++]
-    assert(token !== ']', 'unexpected ]')
-    if (token !== '[') return token
-    const list = []
-    while (true) {
-      if (i >= tokens.length) return list
-      if (tokens[i] === ']') {
-        i++
-        return list
-      }
-      list.push(go())
-    }
-  }
-  return [go(), i]
-}
-
-const parseMonadic2 = (tokens, i = 0) => {
-  if (i >= tokens.length) throw new Error('expected a token')
-  const token = tokens[i]
-  assert(token !== ']', 'unexpected ]')
-  if (token !== '[') return [token, i + 1]
-  let list = []
-  let j = i + 1
-  while (true) {
-    if (j >= tokens.length) return [list, j]
-    if (tokens[j] === ']') return [list, j + 1]
-    const [f, k] = parseMonadic2(tokens, j)
-    // list.push(f)
-    list = [...list, f]
-    j = k
-  }
-}
-
-export const parse1 = (s) => parseMonadic2(lexToArr(s))[0]
-
-export const parseAll = (s) => {
-  const tokens = lexToArr(s)
-  const forms = []
-  let i = 0
-  while (i < tokens.length) {
-    const [form, j] = parseMonadic1(tokens, i)
-    forms.push(form)
-    i = j
-  }
-  return forms
-}
-
 export const makeParser = (is) => {
   const lexer = lexerFromString(is)
   return makeParserFromLexer(lexer)
+}
+
+export const parse1 = (s) => makeParser(s)()
+
+export const parseAll = (s) => {
+  const parser = makeParser(s)
+  const forms = []
+  while (true) {
+    const form = parser()
+    if (form === null) break
+    forms.push(form)
+  }
+  return forms
 }
 
 export const print = (x) => {
@@ -159,11 +112,13 @@ const macroExpand = (funcEnv) => {
         currentFuncMacro && currentFuncMacro.fname === firstWord,
         `function ${firstWord} not found ${print(form)}`,
       )
-      assert(currentFuncMacro.funcMacro === 'func', 'recursive macro not allowed')
+      assert(
+        currentFuncMacro.funcMacro === 'func',
+        'recursive macro not allowed',
+      )
       isMacro = false
     }
-    if (isMacro)
-      return funcOrMacro(...args.map(go))
+    if (isMacro) return funcOrMacro(...args.map(go))
     return [firstWord, ...args.map(go)]
   }
   return go

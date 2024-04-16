@@ -1,4 +1,4 @@
-import { makeParser, print, makeEvaluator, parse1, parseAll, unit } from './wuns.js'
+import { print, makeEvaluator, parse1, parseAll, unit } from './wuns.js'
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error('test failed ' + msg)
