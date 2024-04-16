@@ -32,7 +32,7 @@ const lexToArr = (s) => {
 }
 
 const tuple = (...args) => Object.freeze(args)
-const unit = tuple()
+export const unit = tuple()
 
 const makeParserFromLexer = (lexNext) => {
   let token = lexNext()

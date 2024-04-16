@@ -1,4 +1,4 @@
-import { makeParser, print, makeEvaluator, parse1, parseAll } from './wuns.js'
+import { makeParser, print, makeEvaluator, parse1, parseAll, unit } from './wuns.js'
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error('test failed ' + msg)
@@ -86,6 +86,16 @@ const mkFuncEnv = () => {
   funcEnv.set('list', (...args) => Object.freeze(args))
   funcEnv.set('concat', (...args) => Object.freeze(args.flat()))
   funcEnv.set('concat-words', (...ws) => ws.join(''))
+
+  funcEnv.set('mutable-list', (...args) => args)
+  funcEnv.set('push', (ar, e) => {
+    if (!Array.isArray(ar)) throw new Error('push expects array')
+    if (Object.isFrozen(ar)) throw new Error('push expects mutable array')
+    ar.push(e)
+    return unit
+  })
+
+  funcEnv.set('freeze', (ar) => Object.freeze(ar))
 
   funcEnv.set('word', (cs) => {
     // assert(is)

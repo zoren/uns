@@ -117,29 +117,23 @@
 
           [abort unexpected-character]]]]]]
 
-[func sum-num-words [codes]
-  [let [s [size codes]]
-    [loop [i [quote 0]
-          sum [quote 0]]
-      [if [lt i s]
-        [cont [inc i] [add sum [nth codes i]]]
-        sum]]]]
-
 [func lex [code-points]
-  [let [s [size code-points]]
-    [loop [i [quote 0]
-           tokens [quote []]]
+  [let [s [size code-points]
+           tokens [mutable-list]]
+    [loop [i [quote 0]]
       [if [ge i s]
-        tokens
+        [freeze tokens]
         [let [tup [get-token code-points i s]
               c [first tup]
               end [third tup]]
             [if [eq c [quote eof]]
-              tokens
-              [cont end [concat tokens
-                [list [if [eq c [quote ident]]
+              [freeze tokens]
+              [do
+                  [push tokens
+                    [if [eq c [quote ident]]
                         [word [slice code-points [second tup] end]]
-                        c]]]]]]]]]]
+                        c]]
+                [cont end]]]]]]]]
 
 [func parse1 [tokens i]
   [when [ge i [size tokens]]
