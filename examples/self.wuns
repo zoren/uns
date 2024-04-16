@@ -187,7 +187,7 @@
           [loop [i [quote 0]
                  res []]
             [if [lt i [dec s]]
-              [cont [inc i] [concat res [print [nth f i]] [wfcc 32]]]
+              [cont [inc i] [concat res [print [nth f i]] [word [quote [93]]]]]
               [concat-words res [print [nth f [dec s]]]]]]]
         [word [quote [93]]]]]]]]
 
@@ -199,7 +199,7 @@
         [let [k [nth ctx i]
               v [nth ctx [inc i]]]
           [if [eq k sym]
-            [tup v]
+            [list v]
             [cont [add i [quote 2]]]]]]]]]
 
 [func analyse [ctx form]

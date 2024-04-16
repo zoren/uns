@@ -119,6 +119,56 @@ export const print = (x) => {
 const symbolContinue = Symbol.for('wuns-continue')
 const symbolFuncOrMacro = Symbol.for('wuns-func-or-macro')
 
+const macroExpand = (funcEnv) => {
+  let currentFuncMacro = null
+  const go = (form) => {
+    if (typeof form === 'string') return form
+    assert(Array.isArray(form), `cannot eval ${form} expected string or array`)
+    if (form.length === 0) return unit
+    const [firstWord, ...args] = form
+    switch (firstWord) {
+      case 'quote':
+        return form
+      case 'if':
+        return [firstWord, ...args.map(go)]
+      case 'let':
+      case 'loop': {
+        const [bindings, ...bodies] = args
+        return [
+          firstWord,
+          bindings.map((borf, i) => (i % 2 === 0 ? borf : go(borf))),
+          ...bodies.map(go),
+        ]
+      }
+      case 'cont':
+        return [firstWord, ...args.map(go)]
+      case 'func':
+      case 'macro': {
+        const [fname, origParams, ...bodies] = args
+        // recursion...
+        currentFuncMacro = { fname, funcMacro: firstWord }
+        return [firstWord, fname, origParams, ...bodies.map(go)]
+      }
+    }
+    const funcOrMacro = funcEnv.get(firstWord)
+    let isMacro
+    if (funcOrMacro) {
+      isMacro = funcOrMacro[symbolFuncOrMacro] === 'macro'
+    } else {
+      assert(
+        currentFuncMacro && currentFuncMacro.fname === firstWord,
+        `function ${firstWord} not found ${print(form)}`,
+      )
+      assert(currentFuncMacro.funcMacro === 'func', 'recursive macro not allowed')
+      isMacro = false
+    }
+    if (isMacro)
+      return funcOrMacro(...args.map(go))
+    return [firstWord, ...args.map(go)]
+  }
+  return go
+}
+
 export const makeEvaluator = (funcEnv) => {
   const wunsEval = (form, env) => {
     if (typeof form === 'string')
@@ -186,5 +236,6 @@ export const makeEvaluator = (funcEnv) => {
       return wunsEval(funcOrMacro(...args), env)
     return funcOrMacro(...args.map((arg) => wunsEval(arg, env)))
   }
-  return wunsEval
+  const expander = macroExpand(funcEnv)
+  return (form) => wunsEval(expander(form), null)
 }
