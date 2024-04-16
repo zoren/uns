@@ -14,31 +14,53 @@
 
 [func is-negative [x] [lt x [quote 0]]]
 
+[func first [l] [nth l [quote 0]]]
+[func second [l] [nth l [quote 1]]]
+[func third [l] [nth l [quote 2]]]
+
+[macro and [.. clauses]
+  [let [s [size clauses]]
+    [if [eq s [quote 0]]
+      [quote 1]
+      [loop [i [dec s]
+             result [first clauses]]
+          [if [is-negative i]
+            result
+            [cont
+              [dec i]
+              [list [quote if] [nth clauses i] result [list [quote quote] [quote 0]]]]]]]]]
+
+[macro or [.. clauses]
+  [let [s [size clauses]]
+    [if [eq s [quote 0]]
+      [quote 0]
+      [loop [i [dec s]
+             result [first clauses]]
+          [if [is-negative i]
+            result
+            [cont
+              [dec i]
+              [list [quote if] [nth clauses i] [list [quote quote] [quote 1]] result]]]]]]]
+
 [func is-whitespace [c]
-  [bit-or [eq c [quote 32]] [eq c [quote 10]]]]
+  [or [eq c [quote 32]] [eq c [quote 10]]]]
 
 [func is-square-bracket [c]
-  [bit-or [eq c [quote 91]] [eq c [quote 93]]]]
+  [or [eq c [quote 91]] [eq c [quote 93]]]]
 
 [func is-between-inclusive [lower c upper]
-  [bit-and [le lower c] [le c upper]]]
+  [and [le lower c] [le c upper]]]
 
 [func is-digit [c] [is-between-inclusive [quote 48] c [quote 57]]]
 
 [func is-ident-char [c]
-  [bit-or
+  [or
     [is-between-inclusive [quote 97] c [quote 122]]
-    [bit-or
-      [is-digit c]
-      [is-between-inclusive [quote 45] c [quote 46]]
-      ]]]
+    [is-digit c]
+    [is-between-inclusive [quote 45] c [quote 46]]]]
 
 [macro if-not [cond then else]
-  [list
-    [quote if] cond
-    else
-    then
-    ]]
+  [list [quote if] cond else then]]
 
 [func quote-all [l]
   [let [s [size l]
@@ -113,10 +135,6 @@
     [quote if] cond
     []
     [concat [list [quote do]] forms]]]
-
-[func first [l] [nth l [quote 0]]]
-[func second [l] [nth l [quote 1]]]
-[func third [l] [nth l [quote 2]]]
 
 [func lex [code-points]
   [let [s [size code-points]]
