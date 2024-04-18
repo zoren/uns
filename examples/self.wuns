@@ -17,6 +17,7 @@
 [func first [l] [nth l [quote 0]]]
 [func second [l] [nth l [quote 1]]]
 [func third [l] [nth l [quote 2]]]
+[func rest [l] [slice l [quote 1] [size l]]]
 
 [macro and [.. clauses]
   [let [s [size clauses]]
@@ -29,6 +30,20 @@
             [cont
               [dec i]
               [list [quote if] [nth clauses i] result [list [quote quote] [quote 0]]]]]]]]]
+
+[macro ifs [.. clauses]
+  [let [s [size clauses]]
+    [assert [is-odd s] ifs requires an odd number of forms]
+    [loop [res [nth clauses [dec s]]
+           i [dec s]]
+      [if i
+        [cont
+          [list [quote if]
+            [nth clauses [sub i [quote 2]]]
+            [nth clauses [dec i]]
+            res]
+          [sub i [quote 2]]]
+        res]]]]
 
 [macro or [.. clauses]
   [let [s [size clauses]]
@@ -80,20 +95,6 @@
 [macro assert [cond .. lmsg]
   [list [quote when-not] cond
     [list [quote abort] [list [quote quote] [concat [list [quote assert-fail]] lmsg]]]]]
-
-[macro ifs [.. clauses]
-  [let [s [size clauses]]
-    [assert [is-odd s] ifs requires an odd number of forms]
-    [loop [res [nth clauses [dec s]]
-           i [dec s]]
-      [if i
-        [cont
-          [list [quote if]
-            [nth clauses [sub i [quote 2]]]
-            [nth clauses [dec i]]
-            res]
-          [sub i [quote 2]]]
-        res]]]]
 
 [func get-token [code-points start end]
   [loop [i start]

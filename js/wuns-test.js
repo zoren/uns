@@ -111,6 +111,8 @@ const mkFuncEnv = () => {
       })
       .join('')
   })
+  let gensym = 0
+  funcEnv.set('gensym', () => String(gensym++))
   funcEnv.set('log', (a) => console.log(print(a)) || a)
 
   funcEnv.set('abort', (w) => {
