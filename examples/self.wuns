@@ -67,20 +67,23 @@
       [let [gs [gensym]]
         [list [quote let] [list gs [first clauses]]
           [list [quote if] gs
-          [concat [list [quote and]] [rest clauses]]
-          gs]]]]]]
+            [concat [list [quote and]] [rest clauses]]
+            gs]]]]]]
 
 [macro or [.. clauses]
   [let [s [size clauses]]
-    [if [eq s [quote 0]]
+    [ifs
+      [eq s [quote 0]]
       [quote 0]
-      [loop [i [dec s]
-             result [first clauses]]
-          [if [is-negative i]
-            result
-            [cont
-              [dec i]
-              [list [quote if] [nth clauses i] [list [quote quote] [quote 1]] result]]]]]]]
+
+      [eq s [quote 1]]
+      [first clauses]
+
+      [let [gs [gensym]]
+        [list [quote let] [list gs [first clauses]]
+          [list [quote if] gs
+            gs
+            [concat [list [quote or]] [rest clauses]]]]]]]]
 
 [func is-whitespace [c]
   [or [eq c [quote 32]] [eq c [quote 10]]]]
