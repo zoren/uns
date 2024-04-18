@@ -115,7 +115,7 @@
               [cont [inc j]]
               [list [quote ident] tok-start j]]]
 
-          [abort unexpected-character]]]]]]
+          [abort [quote unexpected-character]]]]]]]
 
 [func lex [code-points]
   [let [s [size code-points]
