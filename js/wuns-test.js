@@ -87,7 +87,7 @@ const mkFuncEnv = () => {
   funcEnv.set('concat', (...args) => Object.freeze(args.flat()))
   funcEnv.set('concat-words', (...ws) => ws.join(''))
 
-  funcEnv.set('mutable-list', (...args) => args)
+  funcEnv.set('mutable-list', () => [])
   funcEnv.set('push', (ar, e) => {
     if (!Array.isArray(ar)) throw new Error('push expects array')
     if (Object.isFrozen(ar)) throw new Error('push expects mutable array')

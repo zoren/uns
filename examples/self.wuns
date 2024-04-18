@@ -23,19 +23,19 @@
   [list [quote if] cond else then]]
 
 [macro do [.. forms]
-  [concat [list [quote let] []] forms]]
+  [concat [quote [let []]] forms]]
 
 [macro when [cond .. forms]
   [list
     [quote if] cond
-    [concat [list [quote do]] forms]
+    [concat [quote [do]] forms]
     []]]
 
 [macro when-not [cond .. forms]
   [list
     [quote if] cond
     []
-    [concat [list [quote do]] forms]]]
+    [concat [quote [do]] forms]]]
 
 [macro assert [cond .. lmsg]
   [list [quote when-not] cond
@@ -63,7 +63,7 @@
       [let [gs [gensym]]
         [list [quote let] [list gs [first clauses]]
           [list [quote if] gs
-            [concat [list [quote and]] [rest clauses]]
+            [concat [quote [and]] [rest clauses]]
             gs]]]]]]
 
 [macro or [.. clauses]
@@ -79,7 +79,7 @@
         [list [quote let] [list gs [first clauses]]
           [list [quote if] gs
             gs
-            [concat [list [quote or]] [rest clauses]]]]]]]]
+            [concat [quote [or]] [rest clauses]]]]]]]]
 
 [func is-whitespace [c]
   [or [eq c [quote 32]] [eq c [quote 10]]]]
