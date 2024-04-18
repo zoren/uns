@@ -43,17 +43,13 @@
 
 [macro ifs [.. clauses]
   [let [s [size clauses]]
-    [assert [is-odd s] ifs requires an odd number of forms]
-    [loop [res [nth clauses [dec s]]
-           i [dec s]]
-      [if i
-        [cont
-          [list [quote if]
-            [nth clauses [sub i [quote 2]]]
-            [nth clauses [dec i]]
-            res]
-          [sub i [quote 2]]]
-        res]]]]
+    [if [eq s [quote 0]]
+      [abort [quote [ifs requires an odd number of arguments]]]
+      [if [eq s [quote 1]]
+        [first clauses]
+        [list [quote if] [first clauses]
+          [second clauses]
+          [concat [quote [ifs]] [slice clauses [quote 2] [size clauses]]]]]]]]
 
 [macro and [.. clauses]
   [let [s [size clauses]]
