@@ -19,47 +19,6 @@
 [func third [l] [nth l [quote 2]]]
 [func rest [l] [slice l [quote 1] [size l]]]
 
-[macro and [.. clauses]
-  [let [s [size clauses]]
-    [if [eq s [quote 0]]
-      [quote 1]
-      [loop [i [dec s]
-             result [first clauses]]
-          [if [is-negative i]
-            result
-            [cont
-              [dec i]
-              [list [quote if] [nth clauses i] result [list [quote quote] [quote 0]]]]]]]]]
-
-[macro or [.. clauses]
-  [let [s [size clauses]]
-    [if [eq s [quote 0]]
-      [quote 0]
-      [loop [i [dec s]
-             result [first clauses]]
-          [if [is-negative i]
-            result
-            [cont
-              [dec i]
-              [list [quote if] [nth clauses i] [list [quote quote] [quote 1]] result]]]]]]]
-
-[func is-whitespace [c]
-  [or [eq c [quote 32]] [eq c [quote 10]]]]
-
-[func is-square-bracket [c]
-  [or [eq c [quote 91]] [eq c [quote 93]]]]
-
-[func is-between-inclusive [lower c upper]
-  [and [le lower c] [le c upper]]]
-
-[func is-digit [c] [is-between-inclusive [quote 48] c [quote 57]]]
-
-[func is-ident-char [c]
-  [or
-    [is-between-inclusive [quote 97] c [quote 122]]
-    [is-digit c]
-    [is-between-inclusive [quote 45] c [quote 46]]]]
-
 [macro if-not [cond then else]
   [list [quote if] cond else then]]
 
@@ -95,6 +54,50 @@
             res]
           [sub i [quote 2]]]
         res]]]]
+
+[macro and [.. clauses]
+  [let [s [size clauses]]
+    [ifs
+      [eq s [quote 0]]
+      [quote 1]
+      
+      [eq s [quote 1]]
+      [first clauses]
+
+      [let [gs [gensym]]
+        [list [quote let] [list gs [first clauses]]
+          [list [quote if] gs
+          [concat [list [quote and]] [rest clauses]]
+          gs]]]]]]
+
+[macro or [.. clauses]
+  [let [s [size clauses]]
+    [if [eq s [quote 0]]
+      [quote 0]
+      [loop [i [dec s]
+             result [first clauses]]
+          [if [is-negative i]
+            result
+            [cont
+              [dec i]
+              [list [quote if] [nth clauses i] [list [quote quote] [quote 1]] result]]]]]]]
+
+[func is-whitespace [c]
+  [or [eq c [quote 32]] [eq c [quote 10]]]]
+
+[func is-square-bracket [c]
+  [or [eq c [quote 91]] [eq c [quote 93]]]]
+
+[func is-between-inclusive [lower c upper]
+  [and [le lower c] [le c upper]]]
+
+[func is-digit [c] [is-between-inclusive [quote 48] c [quote 57]]]
+
+[func is-ident-char [c]
+  [or
+    [is-between-inclusive [quote 97] c [quote 122]]
+    [is-digit c]
+    [is-between-inclusive [quote 45] c [quote 46]]]]
 
 [func get-token [code-points start end]
   [loop [i start]
