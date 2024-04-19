@@ -179,11 +179,12 @@ typedef struct form
   form_tag tag;
   union
   {
+    // add length to word
     char *word;
     struct
     {
-      struct form *forms;
       int len;
+      struct form *forms;
     };
   } u;
 } form_t;
@@ -288,6 +289,123 @@ void print_form(form_t form)
   }
 }
 
+const form_t unit = {.tag = form_list, .u = {.len = 0, .forms = NULL}};
+
+typedef struct
+{
+  char *word;
+  form_t form;
+} Binding;
+
+typedef struct Env
+{
+  struct Env *parent;
+  int len;
+  Binding *bindings;
+} Env_t;
+
+#include "gperf.c"
+
+form_t eval(form_t form, Env_t *env)
+{
+  switch (form.tag)
+  {
+  case form_word:
+  {
+    while (env != NULL)
+    {
+      for (int i = 0; i < env->len; i++)
+      {
+        if (strcmp(form.u.word, env->bindings[i].word) == 0)
+        {
+          return env->bindings[i].form;
+        }
+      }
+      env = env->parent;
+    }
+  }
+  case form_list:
+  {
+    const int length = form.u.len;
+    const form_t* forms = form.u.forms;
+    if (length == 0)
+      return unit;
+    const form_t first = forms[0];
+    if (first.tag != form_word)
+    {
+      printf("Error: first element of list is not a word\n");
+      exit(1);
+    }
+    const char *first_word = first.u.word;
+    struct special_form *specform = in_word_set(first_word, strlen(first_word));
+    if (specform == NULL)
+    {
+      printf("Error: unknown special form\n");
+      exit(1);
+    }
+    switch (specform->value)
+    {
+    case QUOTE:
+      if (length != 2)
+      {
+        printf("Error: quote takes exactly one argument\n");
+        exit(1);
+      }
+      return forms[1];
+    case IF:
+    {
+      if (length != 4)
+      {
+        printf("Error: if takes exactly three arguments\n");
+        exit(1);
+      }
+      const form_t cond = eval(forms[1], env);
+      return eval(forms[(cond.tag == form_word && strcmp(cond.u.word, "0") == 0) ? 3 : 2], env);
+    }
+    case LET:
+    case LOOP:
+    {
+      if (length < 3)
+      {
+        printf("Error: let takes at least two arguments\n");
+        exit(1);
+      }
+      form_t binding_form = forms[1];
+      if (binding_form.tag != form_list || binding_form.u.len % 2 != 0)
+      {
+        printf("Error: let bindings must be a list of even length\n");
+        exit(1);
+      }
+      const int binding_length = binding_form.u.len;
+      const form_t *binding_forms = binding_form.u.forms;
+      Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
+      Env_t new_env = {.parent = env, .len = 0, .bindings = bindings};
+      for (int i = 0; i < binding_length; i += 2)
+      {
+        if (binding_forms[i].tag != form_word)
+        {
+          printf("Error: let bindings must be words\n");
+          exit(1);
+        }
+        bindings[new_env.len].word = binding_forms[i].u.word;
+        bindings[new_env.len].form = eval(binding_forms[i + 1], &new_env);
+        new_env.len++;
+      }
+      return eval(forms[form.u.len - 1], &new_env);
+    }
+    default:
+      printf("Error: unknown special form\n");
+      exit(1);
+    }
+
+  default:
+    break;
+  }
+
+    return form;
+  }
+}
+
 int main(int argc, char **argv)
 {
   if (argc < 2)
@@ -310,7 +428,8 @@ int main(int argc, char **argv)
   st.byte_offset = 0;
 
   form_t form = parse(&st);
-  print_form(form);
+  form_t evaluated = eval(form, NULL);
+  print_form(evaluated);
   printf("\n");
   fclose(file);
 }

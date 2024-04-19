@@ -1,0 +1,13 @@
+%{
+typedef enum { QUOTE = 258, IF, LET, LOOP, CONT, FUNC, MACRO } special_t;
+%}
+struct special_form { const char *name; special_t value; }
+%%
+quote, QUOTE
+if, IF
+let, LET
+loop, LOOP
+cont, CONT
+func, FUNC
+macro, MACRO
+%%
