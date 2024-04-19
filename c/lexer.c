@@ -267,14 +267,23 @@ void print_form(form_t form)
   switch (form.tag)
   {
   case form_word:
-    printf("WORD: %s\n", form.u.word);
+    printf("%s", form.u.word);
     break;
   case form_list:
-    printf("LIST: %d\n", form.u.len);
-    for (int i = 0; i < form.u.len; i++)
+    if (form.u.len == 0)
     {
+      printf("[]");
+      return;
+    }
+    printf("[");
+    print_form(form.u.forms[0]);
+
+    for (int i = 1; i < form.u.len; i++)
+    {
+      printf(" ");
       print_form(form.u.forms[i]);
     }
+    printf("]");
     break;
   }
 }
@@ -302,5 +311,6 @@ int main(int argc, char **argv)
 
   form_t form = parse(&st);
   print_form(form);
+  printf("\n");
   fclose(file);
 }
