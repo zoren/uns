@@ -360,17 +360,17 @@ form_t eval(form_t form, Env_t *env)
       assert(length >= 3 && "let and loop must have at least two arguments");
       form_t binding_form = forms[1];
       assert(binding_form.tag == form_list && "let bindings must be a list");
-      assert(binding_form.u.len % 2 == 0 && "let bindings must be a list of even length");
       const int binding_length = binding_form.u.len;
+      assert(binding_length % 2 == 0 && "let bindings must be a list of even length");
       const form_t *binding_forms = binding_form.u.forms;
       Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
-      Env_t new_env = {.parent = env, .len = 0, .bindings = bindings};
+      Env_t new_env = {.parent = env, .len = binding_length/2, .bindings = bindings};
       for (int i = 0; i < binding_length; i += 2)
       {
         assert(binding_forms[i].tag == form_word && "let bindings must be words");
-        bindings[new_env.len].word = binding_forms[i].u.word;
-        bindings[new_env.len].form = eval(binding_forms[i + 1], &new_env);
-        new_env.len++;
+        bindings->word = binding_forms[i].u.word;
+        bindings->form = eval(binding_forms[i + 1], &new_env);
+        bindings++;
       }
       for (int i = 2; i < length - 1; i++)
         eval(forms[i], &new_env);
