@@ -177,16 +177,13 @@ typedef enum
 typedef struct form
 {
   form_tag tag;
+  ssize_t len;
   union
   {
     // add length to word
     char *word;
-    struct
-    {
-      int len;
-      struct form *forms;
-    };
-  } u;
+    struct form *forms;
+  };
 } form_t;
 
 form_t parse(FileLexerState *st)
@@ -214,9 +211,10 @@ next:
       next_char(st);
     } while (classify_char(peek_char(st)) == WORD);
     const int len = st->cur - word_start;
-    form.u.word = malloc(len + 1);
-    memcpy(form.u.word, word_start, len);
-    form.u.word[len] = '\0';
+    form.len = len;
+    form.word = malloc(len + 1);
+    memcpy(form.word, word_start, len);
+    form.word[len] = '\0';
     return form;
   }
   case START_LIST:
@@ -224,8 +222,9 @@ next:
     next_char(st);
     form_t form;
     form.tag = form_list;
-    form.u.forms = malloc(sizeof(form_t) * 10);
-    form.u.len = 0;
+    // todo make them growable, and trim to size on return
+    form.forms = malloc(sizeof(form_t) * 10);
+    form.len = 0;
     while (1)
     {
       c = peek_char(st);
@@ -246,12 +245,12 @@ next:
         continue;
       }
 
-      if (form.u.len == 10)
+      if (form.len == 10)
       {
         printf("Error: list too long\n");
         exit(1);
       }
-      form.u.forms[form.u.len++] = parse(st);
+      form.forms[form.len++] = parse(st);
     }
     return form;
   }
@@ -268,28 +267,29 @@ void print_form(form_t form)
   switch (form.tag)
   {
   case form_word:
-    printf("%s", form.u.word);
+    printf("%s", form.word);
     break;
   case form_list:
-    if (form.u.len == 0)
+    if (form.len == 0)
     {
       printf("[]");
       return;
     }
     printf("[");
-    print_form(form.u.forms[0]);
+    print_form(form.forms[0]);
 
-    for (int i = 1; i < form.u.len; i++)
+    for (int i = 1; i < form.len; i++)
     {
       printf(" ");
-      print_form(form.u.forms[i]);
+      print_form(form.forms[i]);
     }
     printf("]");
     break;
   }
 }
 
-const form_t unit = {.tag = form_list, .u = {.len = 0, .forms = NULL}};
+const form_t unit = {.tag = form_list, .len = 0, .forms = NULL};
+const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = " continue special value "};
 
 typedef struct
 {
@@ -316,7 +316,7 @@ form_t eval(form_t form, Env_t *env)
     {
       for (int i = 0; i < env->len; i++)
       {
-        if (strcmp(form.u.word, env->bindings[i].word) == 0)
+        if (strcmp(form.word, env->bindings[i].word) == 0)
         {
           return env->bindings[i].form;
         }
@@ -326,8 +326,8 @@ form_t eval(form_t form, Env_t *env)
   }
   case form_list:
   {
-    const int length = form.u.len;
-    const form_t *forms = form.u.forms;
+    const int length = form.len;
+    const form_t *forms = form.forms;
     if (length == 0)
       return unit;
     const form_t first = forms[0];
@@ -336,14 +336,15 @@ form_t eval(form_t form, Env_t *env)
       printf("Error: first element of list is not a word\n");
       exit(1);
     }
-    const char *first_word = first.u.word;
+    const char *first_word = first.word;
     struct special_form *specform = in_word_set(first_word, strlen(first_word));
     if (specform == NULL)
     {
       printf("Error: unknown special form\n");
       exit(1);
     }
-    switch (specform->value)
+    const special_t specialFormValue = specform->value;
+    switch (specialFormValue)
     {
     case QUOTE:
       assert(length == 2 && "quote takes exactly one argument");
@@ -352,7 +353,10 @@ form_t eval(form_t form, Env_t *env)
     {
       assert(length == 4 && "if takes three arguments");
       const form_t cond = eval(forms[1], env);
-      return eval(forms[(cond.tag == form_word && strcmp(cond.u.word, "0") == 0) ? 3 : 2], env);
+      bool b = cond.tag == form_word &&
+               cond.len == 1 &&
+               cond.word[0] == '0';
+      return eval(forms[b ? 3 : 2], env);
     }
     case LET:
     case LOOP:
@@ -360,21 +364,49 @@ form_t eval(form_t form, Env_t *env)
       assert(length >= 3 && "let and loop must have at least two arguments");
       form_t binding_form = forms[1];
       assert(binding_form.tag == form_list && "let bindings must be a list");
-      const int binding_length = binding_form.u.len;
+      const int binding_length = binding_form.len;
       assert(binding_length % 2 == 0 && "let bindings must be a list of even length");
-      const form_t *binding_forms = binding_form.u.forms;
+      const form_t *binding_forms = binding_form.forms;
       Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
-      Env_t new_env = {.parent = env, .len = binding_length/2, .bindings = bindings};
+      Env_t new_env = {.parent = env, .len = binding_length / 2, .bindings = bindings};
       for (int i = 0; i < binding_length; i += 2)
       {
         assert(binding_forms[i].tag == form_word && "let bindings must be words");
-        bindings->word = binding_forms[i].u.word;
+        bindings->word = binding_forms[i].word;
         bindings->form = eval(binding_forms[i + 1], &new_env);
         bindings++;
       }
-      for (int i = 2; i < length - 1; i++)
-        eval(forms[i], &new_env);
-      return eval(forms[length - 1], &new_env);
+      if (specialFormValue == LET)
+      {
+        for (int i = 2; i < length - 1; i++)
+          eval(forms[i], &new_env);
+        const form_t result = eval(forms[length - 1], &new_env);
+        free(bindings);
+        return result;
+      }
+      while (true)
+      {
+        for (int i = 2; i < length - 1; i++)
+          eval(forms[i], &new_env);
+        const form_t result = eval(forms[length - 1], &new_env);
+        if (result.tag == form_list &&
+            result.len > 0 &&
+            &result.forms[0] == &continueSpecialWord)
+        {
+
+          continue;
+        }
+        free(bindings);
+        return result;
+      }
+    }
+    case CONT:
+    {
+      form_t *cont_args = malloc(sizeof(form_t) * (length));
+      cont_args[0] = continueSpecialWord;
+      for (int i = 1; i < length; i++)
+        cont_args[i] = eval(forms[i], env);
+      return (form_t){.tag = form_list, .len = length, .forms = cont_args};
     }
     default:
       printf("Error: unknown special form\n");
