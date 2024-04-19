@@ -72,10 +72,10 @@ const mkFuncEnv = () => {
   funcEnv.set('is-list', (f) => boolToWord(Array.isArray(f)))
 
   funcEnv.set('size', (a) => String(Number(a.length)))
-  funcEnv.set('nth', (v, i) => {
+  funcEnv.set('at', (v, i) => {
     const ni = Number(i)
     if (ni < 0 || ni >= v.length) {
-      console.log('nth error', ni, v.length, i, v)
+      console.log('at error', ni, v.length, i, v)
       throw new Error('index out of bounds: ' + i)
     }
     return v[ni]

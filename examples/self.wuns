@@ -14,9 +14,9 @@
 
 [func is-negative [x] [lt x [quote 0]]]
 
-[func first [l] [nth l [quote 0]]]
-[func second [l] [nth l [quote 1]]]
-[func third [l] [nth l [quote 2]]]
+[func first [l] [at l [quote 0]]]
+[func second [l] [at l [quote 1]]]
+[func third [l] [at l [quote 2]]]
 [func rest [l] [slice l [quote 1] [size l]]]
 
 [macro if-not [cond then else]
@@ -104,7 +104,7 @@
       [list [quote eof] i i]
 
       [let [tok-start i
-            c [nth code-points i]]
+            c [at code-points i]]
         [ifs
           [is-whitespace c]
           [cont [inc i]]
@@ -114,7 +114,7 @@
 
           [is-ident-char c]
           [loop [j [inc i]]
-            [if [if [lt j end] [is-ident-char [nth code-points j]] [quote 0]]
+            [if [if [lt j end] [is-ident-char [at code-points j]] [quote 0]]
               [cont [inc j]]
               [list [quote ident] tok-start j]]]
 
@@ -141,7 +141,7 @@
 [func parse1 [tokens i]
   [when [ge i [size tokens]]
     [abort [quote unexpected-end-of-input]]]
-  [let [token [nth tokens i]
+  [let [token [at tokens i]
         start-bracket [word [quote [91]]]
         end-bracket [word [quote [93]]]
         s-toks [size tokens]]
@@ -155,7 +155,7 @@
               [ge j s-toks]
               j
 
-              [eq [nth tokens j] end-bracket]
+              [eq [at tokens j] end-bracket]
               [inc j]
 
               [let [res [parse1 tokens j]]
@@ -190,8 +190,8 @@
           [loop [i [quote 0]
                  res []]
             [if [lt i [dec s]]
-              [cont [inc i] [concat res [print [nth f i]] [word [quote [93]]]]]
-              [concat-words res [print [nth f [dec s]]]]]]]
+              [cont [inc i] [concat res [print [at f i]] [word [quote [93]]]]]
+              [concat-words res [print [at f [dec s]]]]]]]
         [word [quote [93]]]]]]]]
 
 [func lookup [ctx sym]
@@ -199,8 +199,8 @@
     [loop [i [quote 0]]
       [if [ge i s]
         [quote symbol-not-found]
-        [let [k [nth ctx i]
-              v [nth ctx [inc i]]]
+        [let [k [at ctx i]
+              v [at ctx [inc i]]]
           [if [eq k sym]
             [list v]
             [cont [add i [quote 2]]]]]]]]]
