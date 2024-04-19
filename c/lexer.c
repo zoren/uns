@@ -11,9 +11,7 @@ typedef enum
   WORD,
   START_LIST = '[',
   END_LIST = ']',
-  BAD_CHAR,
-  WORD_TOO_LONG,
-  EOF_TOKEN
+  WHITESPACE
 } token_type;
 
 typedef struct
@@ -23,22 +21,37 @@ typedef struct
   const char *word;
 } token;
 
-#define BUFSIZE (128 - 1)
-
-typedef enum
+void print_token(token t)
 {
-  STATE_START,
-  STATE_WORD,
-  STATE_START_LIST,
-  STATE_END_LIST
-} State;
+  switch (t.type)
+  {
+  case WORD:
+    printf("WORD: %.*s  (%d)\n", t.len, t.word, t.len);
+    break;
+  case START_LIST:
+    printf("START_LIST\n");
+    break;
+  case END_LIST:
+    printf("END_LIST\n");
+    break;
+  case WHITESPACE:
+    printf("WHITESPACE\n");
+    break;
+  default:
+    printf("UNSET: ");
+    break;
+  }
+}
+
+#define BUFSIZE (128 - 1)
 
 typedef struct
 {
   FILE *file;
   char buf[BUFSIZE], *lim, *cur, *tok;
-  State state;
+  token_type state;
   bool eof;
+  int byte_offset;
 } FileLexerState;
 
 token_type fill(FileLexerState *st)
@@ -46,7 +59,7 @@ token_type fill(FileLexerState *st)
   if (st->eof)
   {
     printf("fill EOF\n");
-    return EOF_TOKEN;
+    return 1;
   }
   const size_t shift = st->tok - st->buf;
   const size_t used = st->lim - st->tok;
@@ -56,13 +69,14 @@ token_type fill(FileLexerState *st)
   if (free < 1)
   {
     printf("Error: no space\n");
-    return WORD_TOO_LONG;
+    return 2;
   }
 
   memmove(st->buf, st->tok, used);
   st->lim -= shift;
   st->cur -= shift;
   st->tok -= shift;
+  st->byte_offset += shift;
 
   // Fill free space at the end of buffer with new data.
   const size_t read = fread(st->lim, 1, free, st->file);
@@ -73,7 +87,7 @@ token_type fill(FileLexerState *st)
   st->lim += read;
   st->lim[0] = 0; // append sentinel symbol
 
-  return UNSET;
+  return 0;
 }
 
 char getCurrentChar(FileLexerState *st)
@@ -89,55 +103,180 @@ char getCurrentChar(FileLexerState *st)
   return *st->cur;
 }
 
-token lex_one(FileLexerState *st)
+bool hasMoreChars(FileLexerState *st)
 {
-  char c;
-  while (1)
+  if (st->cur >= st->lim)
   {
-    st->tok = st->cur;
-  next:
-    c = getCurrentChar(st);
-    const State prevState = st->state;
-    switch (c)
+    const token_type t = fill(st);
+    if (t != 0)
     {
-    case '\0':
-      return (token){EOF_TOKEN, 0, NULL};
-    case ' ':
-    case '\n':
-    {
-      st->state = STATE_START;
-      if (prevState == STATE_WORD)
-        return (token){WORD, st->cur - st->tok, st->tok};
-      st->cur++;
-      continue;
-    }
-
-    case '[':
-    case ']':
-    {
-      st->state = STATE_START;
-      if (prevState == STATE_WORD)
-        return (token){WORD, st->cur - st->tok, st->tok};
-      st->cur++;
-      return (token){c, 1, NULL};
-    }
-
-    case 'a' ... 'z':
-    case '0' ... '9':
-    case '-':
-    case '.':
-    case '=':
-      st->state = STATE_WORD;
-      st->cur++;
-      goto next;
-
-    default:
-      return (token){BAD_CHAR, 1, st->tok};
+      return false;
     }
   }
-  if (st->state == STATE_WORD)
-    return (token){WORD, st->cur - st->tok, st->tok};
-  return (token){EOF_TOKEN, 0, NULL};
+  return true;
+}
+
+int peek_char(FileLexerState *st)
+{
+  if (st->cur >= st->lim)
+  {
+    const token_type t = fill(st);
+    if (t != 0)
+    {
+      return -1;
+    }
+    if (st->cur >= st->lim)
+    {
+      return -1;
+    }
+  }
+  return *st->cur;
+}
+
+void next_char(FileLexerState *st)
+{
+  if (st->cur >= st->lim)
+  {
+    const token_type t = fill(st);
+    if (t != 0)
+    {
+      return;
+    }
+  }
+  st->cur++;
+}
+
+token_type classify_char(char c)
+{
+  switch (c)
+  {
+  case ' ':
+  case '\n':
+    return WHITESPACE;
+  case '[':
+  case ']':
+    return c;
+  case 'a' ... 'z':
+  case '0' ... '9':
+  case '-':
+  case '.':
+  case '=':
+    return WORD;
+  default:
+    printf("classify_char: bad char\n");
+    exit(1);
+  }
+}
+
+typedef enum
+{
+  form_word,
+  form_list
+} form_tag;
+
+typedef struct form
+{
+  form_tag tag;
+  union
+  {
+    char *word;
+    struct
+    {
+      struct form *forms;
+      int len;
+    };
+  } u;
+} form_t;
+
+form_t parse(FileLexerState *st)
+{
+  char c;
+next:
+  c = peek_char(st);
+  if (c < 0)
+  {
+    printf("parse Error: unexpected EOF\n");
+    exit(1);
+  }
+  switch (classify_char(c))
+  {
+  case WHITESPACE:
+    next_char(st);
+    goto next;
+  case WORD:
+  {
+    form_t form;
+    form.tag = form_word;
+    const char *word_start = st->cur;
+    do
+    {
+      next_char(st);
+    } while (classify_char(peek_char(st)) == WORD);
+    const int len = st->cur - word_start;
+    form.u.word = malloc(len + 1);
+    memcpy(form.u.word, word_start, len);
+    form.u.word[len] = '\0';
+    return form;
+  }
+  case START_LIST:
+  {
+    next_char(st);
+    form_t form;
+    form.tag = form_list;
+    form.u.forms = malloc(sizeof(form_t) * 10);
+    form.u.len = 0;
+    while (1)
+    {
+      c = peek_char(st);
+      if (c < 0)
+      {
+        printf("parse Error: unexpected EOF\n");
+        exit(1);
+      }
+      const token_type class = classify_char(c);
+      if (class == END_LIST)
+      {
+        next_char(st);
+        return form;
+      }
+      if (class == WHITESPACE)
+      {
+        next_char(st);
+        continue;
+      }
+
+      if (form.u.len == 10)
+      {
+        printf("Error: list too long\n");
+        exit(1);
+      }
+      form.u.forms[form.u.len++] = parse(st);
+    }
+    return form;
+  }
+
+  default:
+    printf("parse Error: unexpected token\n");
+    exit(1);
+    break;
+  }
+}
+
+void print_form(form_t form)
+{
+  switch (form.tag)
+  {
+  case form_word:
+    printf("WORD: %s\n", form.u.word);
+    break;
+  case form_list:
+    printf("LIST: %d\n", form.u.len);
+    for (int i = 0; i < form.u.len; i++)
+    {
+      print_form(form.u.forms[i]);
+    }
+    break;
+  }
 }
 
 int main(int argc, char **argv)
@@ -157,38 +296,11 @@ int main(int argc, char **argv)
   st.file = file;
   st.cur = st.tok = st.lim = st.buf + BUFSIZE;
   st.eof = false;
-  // Sentinel (at YYLIMIT pointer) is set to zero, which triggers YYFILL.
   st.lim[0] = 0;
-  st.state = STATE_START;
-  token t;
-  do
-  {
-    t = lex_one(&st);
-    switch (t.type)
-    {
-    case WORD:
-      printf("WORD: %.*s  (%d)\n", t.len, t.word, t.len);
-      break;
-    case START_LIST:
-      printf("START_LIST\n");
-      break;
-    case END_LIST:
-      printf("END_LIST\n");
-      break;
-    case EOF_TOKEN:
-      printf("EOF\n");
-      break;
-    case BAD_CHAR:
-      printf("BAD_CHAR: ");
-      break;
-    case WORD_TOO_LONG:
-      printf("WORD_TOO_LONG: ");
-      break;
-    default:
-      printf("UNSET: ");
-      break;
-    }
+  st.state = UNSET;
+  st.byte_offset = 0;
 
-  } while (t.type != EOF_TOKEN);
+  form_t form = parse(&st);
+  print_form(form);
   fclose(file);
 }
