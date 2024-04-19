@@ -327,7 +327,7 @@ form_t eval(form_t form, Env_t *env)
   case form_list:
   {
     const int length = form.u.len;
-    const form_t* forms = form.u.forms;
+    const form_t *forms = form.u.forms;
     if (length == 0)
       return unit;
     const form_t first = forms[0];
@@ -346,52 +346,35 @@ form_t eval(form_t form, Env_t *env)
     switch (specform->value)
     {
     case QUOTE:
-      if (length != 2)
-      {
-        printf("Error: quote takes exactly one argument\n");
-        exit(1);
-      }
+      assert(length == 2 && "quote takes exactly one argument");
       return forms[1];
     case IF:
     {
-      if (length != 4)
-      {
-        printf("Error: if takes exactly three arguments\n");
-        exit(1);
-      }
+      assert(length == 4 && "if takes three arguments");
       const form_t cond = eval(forms[1], env);
       return eval(forms[(cond.tag == form_word && strcmp(cond.u.word, "0") == 0) ? 3 : 2], env);
     }
     case LET:
     case LOOP:
     {
-      if (length < 3)
-      {
-        printf("Error: let takes at least two arguments\n");
-        exit(1);
-      }
+      assert(length >= 3 && "let and loop must have at least two arguments");
       form_t binding_form = forms[1];
-      if (binding_form.tag != form_list || binding_form.u.len % 2 != 0)
-      {
-        printf("Error: let bindings must be a list of even length\n");
-        exit(1);
-      }
+      assert(binding_form.tag == form_list && "let bindings must be a list");
+      assert(binding_form.u.len % 2 == 0 && "let bindings must be a list of even length");
       const int binding_length = binding_form.u.len;
       const form_t *binding_forms = binding_form.u.forms;
       Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
       Env_t new_env = {.parent = env, .len = 0, .bindings = bindings};
       for (int i = 0; i < binding_length; i += 2)
       {
-        if (binding_forms[i].tag != form_word)
-        {
-          printf("Error: let bindings must be words\n");
-          exit(1);
-        }
+        assert(binding_forms[i].tag == form_word && "let bindings must be words");
         bindings[new_env.len].word = binding_forms[i].u.word;
         bindings[new_env.len].form = eval(binding_forms[i + 1], &new_env);
         new_env.len++;
       }
-      return eval(forms[form.u.len - 1], &new_env);
+      for (int i = 2; i < length - 1; i++)
+        eval(forms[i], &new_env);
+      return eval(forms[length - 1], &new_env);
     }
     default:
       printf("Error: unknown special form\n");
