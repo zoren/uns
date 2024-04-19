@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 typedef enum
 {
@@ -304,7 +305,37 @@ typedef struct Env
   Binding *bindings;
 } Env_t;
 
-#include "gperf.c"
+bool isDecimalWord(form_t word)
+{
+  if (word.tag != form_word)
+    return false;
+  for (int i = 0; i < word.len; i++)
+  {
+    if (isdigit(word.word[i]) == 0)
+      return false;
+  }
+  return true;
+}
+
+form_t add(form_t a, form_t b)
+{
+  assert(isDecimalWord(a) && isDecimalWord(b) && "add requires decimal words");
+  const int r = atoi(a.word) + atoi(b.word);
+  char *result = malloc(12);
+  sprintf(result, "%d", r);
+  return (form_t){.tag = form_word, .len = strlen(result), .word = result};
+}
+
+form_t sub(form_t a, form_t b)
+{
+  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
+  const int r = atoi(a.word) - atoi(b.word);
+  char *result = malloc(12);
+  sprintf(result, "%d", r);
+  return (form_t){.tag = form_word, .len = strlen(result), .word = result};
+}
+
+#include "specialforms.c"
 
 form_t eval(form_t form, Env_t *env)
 {
@@ -393,7 +424,8 @@ form_t eval(form_t form, Env_t *env)
             result.len > 0 &&
             &result.forms[0] == &continueSpecialWord)
         {
-
+          for (int i = 1; i < result.len; i++)
+            new_env.bindings[i - 1].form = result.forms[i];
           continue;
         }
         free(bindings);
