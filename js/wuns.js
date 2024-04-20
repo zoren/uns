@@ -22,7 +22,7 @@ const lexerFromString = (s) => {
 }
 
 export const unit = Object.freeze([])
-export const makeList = (...args) => args.length === 0 ? unit : Object.freeze(args)
+export const makeList = (...args) => (args.length === 0 ? unit : Object.freeze(args))
 
 const makeParserFromLexer = (lexNext) => {
   let token = lexNext()
@@ -95,14 +95,12 @@ export const makeEvaluator = (funcEnv) => {
         const [bindings, ...bodies] = args
         const varValues = new Map()
         const inner = { varValues, outer: env }
-        for (let i = 0; i < bindings.length - 1; i += 2)
-          varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
+        for (let i = 0; i < bindings.length - 1; i += 2) varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
         while (true) {
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
           const elast = wunsEval(bodies.at(-1), inner)
           if (firstWord !== 'loop' || !elast[symbolContinue]) return elast
-          for (let i = 0; i < elast.length; i++)
-            varValues.set(bindings[i * 2], elast[i])
+          for (let i = 0; i < elast.length; i++) varValues.set(bindings[i * 2], elast[i])
         }
       }
       case 'cont': {
@@ -121,9 +119,8 @@ export const makeEvaluator = (funcEnv) => {
         }
         const f = (...args) => {
           const varValues = new Map()
-          for (let i = 0; i < params.length; i++)
-            varValues.set(params[i], args[i])
-          if (restParam) varValues.set(restParam, args.slice(params.length))
+          for (let i = 0; i < params.length; i++) varValues.set(params[i], args[i])
+          if (restParam) varValues.set(restParam, makeList(...args.slice(params.length)))
           const inner = { varValues, outer: null }
           for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
           return wunsEval(bodies.at(-1), inner)
@@ -135,8 +132,7 @@ export const makeEvaluator = (funcEnv) => {
     }
     const funcOrMacro = funcEnv.get(firstWord)
     assert(funcOrMacro, `function ${firstWord} not found ${print(form)}`)
-    if (funcOrMacro[symbolFuncOrMacro] === 'macro')
-      return wunsEval(funcOrMacro(...args), env)
+    if (funcOrMacro[symbolFuncOrMacro] === 'macro') return wunsEval(funcOrMacro(...args), env)
     return funcOrMacro(...args.map((arg) => wunsEval(arg, env)))
   }
   const gogomacro = (form) => {
@@ -152,11 +148,7 @@ export const makeEvaluator = (funcEnv) => {
       case 'let':
       case 'loop': {
         const [bindings, ...bodies] = args
-        return [
-          firstWord,
-          bindings.map((borf, i) => (i % 2 === 0 ? borf : gogomacro(borf))),
-          ...bodies.map(gogomacro),
-        ]
+        return [firstWord, bindings.map((borf, i) => (i % 2 === 0 ? borf : gogomacro(borf))), ...bodies.map(gogomacro)]
       }
       case 'cont':
         return [firstWord, ...args.map(gogomacro)]
@@ -167,8 +159,7 @@ export const makeEvaluator = (funcEnv) => {
       }
     }
     const funcOrMacro = funcEnv.get(firstWord)
-    if (funcOrMacro && funcOrMacro[symbolFuncOrMacro] === 'macro')
-      return gogomacro(funcOrMacro(...args.map(gogomacro)))
+    if (funcOrMacro && funcOrMacro[symbolFuncOrMacro] === 'macro') return gogomacro(funcOrMacro(...args.map(gogomacro)))
     return [firstWord, ...args.map(gogomacro)]
   }
   return (form) => wunsEval(gogomacro(form), null)
