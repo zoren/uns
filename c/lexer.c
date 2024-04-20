@@ -231,6 +231,9 @@ void print_form(form_t form)
     }
     printf("]");
     break;
+  default:
+    printf("print_form Error: unknown tag %d\n", form.tag);
+    exit(1);
   }
 }
 
@@ -256,11 +259,23 @@ form_t word_from_int(int n)
   return (form_t){.tag = form_word, .len = strlen(result), .word = result};
 }
 
-const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = " continue special value "};
+const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = "*continue*"};
+
+bool is_word(form_t a)
+{
+  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
+  return a.tag == form_word;
+}
+
+bool is_list(form_t a)
+{
+  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
+  return a.tag == form_list;
+}
 
 bool isDecimalWord(form_t word)
 {
-  if (word.tag != form_word)
+  if (!is_word(word))
     return false;
   for (int i = 0; i < word.len; i++)
   {
@@ -298,18 +313,6 @@ BUILTIN_TWO_DECIMAL_CMP(lt, <)
 BUILTIN_TWO_DECIMAL_CMP(le, <=)
 BUILTIN_TWO_DECIMAL_CMP(ge, >=)
 BUILTIN_TWO_DECIMAL_CMP(gt, >)
-
-bool is_word(form_t a)
-{
-  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
-  return a.tag == form_word;
-}
-
-bool is_list(form_t a)
-{
-  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
-  return a.tag == form_list;
-}
 
 form_t bi_is_word(form_t a)
 {
@@ -452,6 +455,20 @@ typedef struct Env
   const Binding *bindings;
 } Env_t;
 
+void print_env(const Env_t *env)
+{
+  while (env != NULL)
+  {
+    for (int i = 0; i < env->len; i++)
+    {
+      printf("print_env: %s: ", env->bindings[i].word);
+      print_form(env->bindings[i].form);
+      printf("\n");
+    }
+    env = env->parent;
+  }
+}
+
 typedef struct
 {
   const bool is_macro;
@@ -505,18 +522,20 @@ form_t eval(form_t form, const Env_t *env)
 {
   if (is_word(form))
   {
-    while (env != NULL)
+    const char *word = form.word;
+    Env_t *cur_env = (Env_t*)env;
+    while (cur_env != NULL)
     {
-      for (int i = 0; i < env->len; i++)
+      for (int i = 0; i < cur_env->len; i++)
       {
-        if (strcmp(form.word, env->bindings[i].word) == 0)
+        if (strcmp(word, cur_env->bindings[i].word) == 0)
         {
-          return env->bindings[i].form;
+          return cur_env->bindings[i].form;
         }
       }
-      env = env->parent;
+      cur_env = (Env_t*)cur_env->parent;
     }
-    printf("Error: word not found in env %s\n", form.word);
+    printf("Error: word not found in env %s\n", word);
     exit(1);
   }
   assert(is_list(form) && "eval requires a list at this point");
@@ -524,7 +543,7 @@ form_t eval(form_t form, const Env_t *env)
   const int length = form.len;
   if (length == 0)
     return unit;
-  const form_t *forms = form.forms;  
+  const form_t *forms = form.forms;
   const form_t first = forms[0];
   assert(is_word(first) && "first element a list must be a word");
   const char *first_word = first.word;
@@ -601,13 +620,13 @@ form_t eval(form_t form, const Env_t *env)
     {
       assert(length >= 3 && "func/macro must have at least two arguments");
       const form_t fname = forms[1];
-      assert(fname.tag == form_word && "func/macro name must be a word");
+      assert(is_word(fname) && "func/macro name must be a word");
       const form_t params = forms[2];
-      assert(params.tag == form_list && "func/macro params must be a list");
+      assert(is_list(params) && "func/macro params must be a list");
       const int param_length = params.len;
       for (int i = 0; i < param_length; i++)
       {
-        assert(params.forms[i].tag == form_word && "func/macro params must be words");
+        assert(is_word(params.forms[i]) && "func/macro params must be words");
       }
       const char *rest_param = NULL;
       int arity;
@@ -674,7 +693,6 @@ form_t eval(form_t form, const Env_t *env)
     number_of_given_params = number_of_regular_params + 1;
   }
 
-
   // eval args if func
   form_t *args = malloc(sizeof(form_t) * (length - 1));
   if (is_macro)
@@ -703,7 +721,7 @@ form_t eval(form_t form, const Env_t *env)
   }
   const form_t *bodies = func_macro->bodies;
   const int n_of_bodies = func_macro->n_of_bodies;
-  form_t result = unit;
+  form_t result;
   for (int i = 0; i < n_of_bodies; i++)
   {
     result = eval(bodies[i], &new_env);
