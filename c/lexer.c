@@ -171,8 +171,8 @@ token_type classify_char(char c)
 
 typedef enum
 {
-  form_word,
-  form_list
+  form_word = 1,
+  form_list = 2,
 } form_tag;
 
 typedef struct form
@@ -297,11 +297,14 @@ const form_t two = {.tag = form_word, .len = 1, .word = "2"};
 
 form_t word_from_int(int n)
 {
-  switch(n)
+  switch (n)
   {
-    case 0: return zero;
-    case 1: return one;
-    case 2: return two;
+  case 0:
+    return zero;
+  case 1:
+    return one;
+  case 2:
+    return two;
   }
   char *result = malloc(12);
   sprintf(result, "%d", n);
@@ -309,19 +312,6 @@ form_t word_from_int(int n)
 }
 
 const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = " continue special value "};
-
-typedef struct
-{
-  char *word;
-  form_t form;
-} Binding;
-
-typedef struct Env
-{
-  struct Env *parent;
-  int len;
-  Binding *bindings;
-} Env_t;
 
 bool isDecimalWord(form_t word)
 {
@@ -364,50 +354,69 @@ BUILTIN_TWO_DECIMAL_CMP(le, <=)
 BUILTIN_TWO_DECIMAL_CMP(ge, >=)
 BUILTIN_TWO_DECIMAL_CMP(gt, >)
 
-form_t is_word(form_t a)
+bool is_word(form_t a)
 {
-  return a.tag == form_word ? one : zero;
+  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
+  return a.tag == form_word;
 }
 
-form_t is_list(form_t a)
+bool is_list(form_t a)
 {
-  return a.tag == form_list ? one : zero;
+  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
+  return a.tag == form_list;
 }
 
-form_t size(form_t a)
+form_t bi_is_word(form_t a)
 {
-  assert(a.tag == form_list && "size requires a list");
+  return is_word(a) ? one : zero;
+}
+
+form_t bi_is_list(form_t a)
+{
+  return is_list(a) ? one : zero;
+}
+
+form_t bi_size(form_t a)
+{
   return word_from_int(a.len);
 }
 
 form_t at(form_t a, form_t b)
 {
-  assert(a.tag == form_list && "at requires a list");
+  // should we allow negative indexes? like in js?
+  // indexing words?
+  assert(is_list(a) && "at requires a list");
   assert(isDecimalWord(b) && "at requires a decimal word");
   const int index = atoi(b.word);
   assert(index >= 0 && index < a.len && "at index out of bounds");
   return a.forms[index];
 }
 
-form_t slice(form_t v, form_t i, form_t j)
+form_t slice(int len, const form_t *forms, int start, int end)
 {
-  assert(v.tag == form_list && "slice requires a list");
+  // todo, do it like in js https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
+  // as ousterhout says as well don't throw errors, just return empty list
+  assert(start >= 0 && start < len && "slice start index out of bounds");
+  assert(end >= 0 && end < len && "slice end index out of bounds");
+  const int length = end - start;
+  if (length < 0)
+    return unit;
+  form_t *slice_forms = malloc(sizeof(form_t) * length);
+  for (int i = 0; i < length; i++)
+  {
+    slice_forms[i] = forms[start + i];
+  }
+  return (form_t){.tag = form_list, .len = length, .forms = slice_forms};
+}
+
+form_t bi_slice(form_t v, form_t i, form_t j)
+{
+  assert(is_list(v) && "slice requires a list");
   assert(isDecimalWord(i) && "slice requires a decimal word");
   assert(isDecimalWord(j) && "slice requires a decimal word");
   const int start = atoi(i.word);
   const int end = atoi(j.word);
-  assert(start >= 0 && start < v.len && "slice start index out of bounds");
-  assert(end >= 0 && end < v.len && "slice end index out of bounds");
-  assert(start <= end && "slice start index must be less than or equal to end index");
-  const int length = end - start;
-  if (length == 0)
-    return unit;
-  form_t *forms = malloc(sizeof(form_t) * length);
-  for (int i = 0; i < length; i++)
-  {
-    forms[i] = v.forms[start + i];
-  }
-  return (form_t){.tag = form_list, .len = length, .forms = forms};
+  return slice(v.len, v.forms, start, end);
 }
 
 typedef struct
@@ -417,9 +426,9 @@ typedef struct
 } built_in_func1_t;
 
 const built_in_func1_t built_in_funcs1[] = {
-    {"is-word", is_word},
-    {"is-list", is_list},
-    {"size", size},
+    {"is-word", bi_is_word},
+    {"is-list", bi_is_list},
+    {"size", bi_size},
 };
 
 typedef struct
@@ -446,7 +455,7 @@ typedef struct
 } built_in_func3_t;
 
 const built_in_func3_t built_in_funcs3[] = {
-    {"slice", slice},
+    {"slice", bi_slice},
 };
 
 form_t call_builtin(const char *name, const struct form *args, const int count)
@@ -454,7 +463,7 @@ form_t call_builtin(const char *name, const struct form *args, const int count)
   switch (count)
   {
   case 1:
-    for (int i = 0; i < sizeof(built_in_funcs1) / sizeof(built_in_funcs1[0]); i++)
+    for (unsigned long i = 0; i < sizeof(built_in_funcs1) / sizeof(built_in_funcs1[0]); i++)
     {
       if (strcmp(name, built_in_funcs1[i].name) == 0)
       {
@@ -463,7 +472,7 @@ form_t call_builtin(const char *name, const struct form *args, const int count)
     }
     break;
   case 2:
-    for (int i = 0; i < sizeof(built_in_funcs2) / sizeof(built_in_funcs2[0]); i++)
+    for (unsigned long i = 0; i < sizeof(built_in_funcs2) / sizeof(built_in_funcs2[0]); i++)
     {
       if (strcmp(name, built_in_funcs2[i].name) == 0)
       {
@@ -472,7 +481,7 @@ form_t call_builtin(const char *name, const struct form *args, const int count)
     }
     break;
   case 3:
-    for (int i = 0; i < sizeof(built_in_funcs3) / sizeof(built_in_funcs3[0]); i++)
+    for (unsigned long i = 0; i < sizeof(built_in_funcs3) / sizeof(built_in_funcs3[0]); i++)
     {
       if (strcmp(name, built_in_funcs3[i].name) == 0)
       {
@@ -485,7 +494,69 @@ form_t call_builtin(const char *name, const struct form *args, const int count)
   exit(1);
 }
 
-form_t eval(form_t form, Env_t *env)
+typedef struct
+{
+  const char *word;
+  form_t form;
+} Binding;
+
+typedef struct Env
+{
+  const struct Env *parent;
+  const int len;
+  const Binding *bindings;
+} Env_t;
+
+typedef struct
+{
+  const bool is_macro;
+  const int arity;
+  const char **parameters;
+  const char *rest_param;
+  const int n_of_bodies;
+  const form_t *bodies;
+} FuncMacro;
+
+typedef struct
+{
+  const char *name;
+  const FuncMacro func_macro;
+} FuncMacroBinding;
+
+typedef struct
+{
+  int len;
+  FuncMacroBinding *bindings;
+} FuncMacroEnv;
+
+FuncMacroEnv func_macro_env = {
+    .len = 0,
+    .bindings = NULL,
+};
+
+void insert_func_macro_binding(FuncMacroBinding b)
+{
+  FuncMacroBinding *new_bindings = realloc(func_macro_env.bindings, sizeof(FuncMacroBinding) * (func_macro_env.len + 1));
+  // const FuncMacroBinding b = (FuncMacroBinding){.name = name, .func_macro = func_macro};
+  memcpy(&new_bindings[func_macro_env.len], &b, sizeof(FuncMacroBinding));
+  func_macro_env.len++;
+  func_macro_env.bindings = new_bindings;
+}
+
+const FuncMacro *get_func_macro(const char *name)
+{
+  // search from the end to the beginning to get the latest definition
+  for (int i = func_macro_env.len - 1; i >= 0; i--)
+  {
+    if (strcmp(name, func_macro_env.bindings[i].name) == 0)
+    {
+      return &func_macro_env.bindings[i].func_macro;
+    }
+  }
+  return NULL;
+}
+
+form_t eval(form_t form, const Env_t *env)
 {
   switch (form.tag)
   {
@@ -510,7 +581,7 @@ form_t eval(form_t form, Env_t *env)
     if (length == 0)
       return unit;
     const form_t first = forms[0];
-    if (first.tag != form_word)
+    if (!is_word(first))
     {
       printf("Error: first element of list is not a word\n");
       exit(1);
@@ -541,7 +612,7 @@ form_t eval(form_t form, Env_t *env)
       assert(binding_length % 2 == 0 && "let/loop bindings must be a list of even length");
       const form_t *binding_forms = binding_form.forms;
       Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
-      Env_t new_env = {.parent = env, .len = binding_length / 2, .bindings = bindings};
+      const Env_t new_env = {.parent = env, .len = binding_length / 2, .bindings = bindings};
       for (int i = 0; i < binding_length; i += 2)
       {
         assert(binding_forms[i].tag == form_word && "let/loop bindings must be words");
@@ -567,7 +638,7 @@ form_t eval(form_t form, Env_t *env)
             &result.forms[0] == &continueSpecialWord)
         {
           for (int i = 1; i < result.len; i++)
-            new_env.bindings[i - 1].form = result.forms[i];
+            bindings[i - 1].form = result.forms[i];
           continue;
         }
         free(bindings);
@@ -582,23 +653,126 @@ form_t eval(form_t form, Env_t *env)
         cont_args[i] = eval(forms[i], env);
       return (form_t){.tag = form_list, .len = length, .forms = cont_args};
     }
-    const bool is_func = strcmp(first_word, "func") == 0;
-    const bool is_macro = strcmp(first_word, "macro") == 0;
-    if (is_func || is_macro)
     {
-      printf("Error: func/macro not implemented\n");
-      exit(1);
+      const bool is_func = strcmp(first_word, "func") == 0;
+      const bool is_macro = strcmp(first_word, "macro") == 0;
+      if (is_func || is_macro)
+      {
+        assert(length >= 3 && "func/macro must have at least two arguments");
+        const form_t fname = forms[1];
+        assert(fname.tag == form_word && "func/macro name must be a word");
+        const form_t params = forms[2];
+        assert(params.tag == form_list && "func/macro params must be a list");
+        const int param_length = params.len;
+        for (int i = 0; i < param_length; i++)
+        {
+          assert(params.forms[i].tag == form_word && "func/macro params must be words");
+        }
+        const char *rest_param = NULL;
+        int arity;
+        if (param_length >= 2 && strcmp(params.forms[param_length - 2].word, ".."))
+        {
+          rest_param = params.forms[param_length - 1].word;
+          arity = param_length - 2;
+        }
+        else
+        {
+          arity = param_length;
+        }
+        const char **parameters = malloc(arity * sizeof(char *));
+        for (int i = 0; i < arity; i++)
+        {
+          parameters[i] = params.forms[i].word;
+        }
+        form_t *bodies = malloc(sizeof(form_t) * (length - 3));
+        for (int i = 3; i < length; i++)
+        {
+          bodies[i - 3] = forms[i];
+        }
+        FuncMacro func_macro = {
+            .is_macro = is_macro,
+            .arity = arity,
+            .parameters = parameters,
+            .rest_param = rest_param,
+            .n_of_bodies = length - 3,
+            .bodies = bodies,
+        };
+        FuncMacroBinding func_macro_binding = {.name = fname.word, .func_macro = func_macro};
+        insert_func_macro_binding(func_macro_binding);
+        {
+          const FuncMacro *test_func_macro = get_func_macro(fname.word);
+          assert(test_func_macro != NULL && "func/macro not found");
+          assert(test_func_macro->arity == arity && "func/macro arity mismatch");
+        }
+        return unit;
+      }
     }
+    const int number_of_given_args = length - 1;
+    const FuncMacro *func_macro = get_func_macro(first_word);
+    if (func_macro == NULL)
+    {
+      form_t *args = malloc(sizeof(form_t) * number_of_given_args);
+      for (int i = 1; i < length; i++)
+        args[i - 1] = eval(forms[i], env);
+      return call_builtin(first_word, args, number_of_given_args);
+    }
+    const bool is_macro = func_macro->is_macro;
+    const int number_of_regular_params = func_macro->arity;
+    const char *rest_param = func_macro->rest_param;
+    const char **parameters = func_macro->parameters;
+    int number_of_given_params;
+    if (rest_param == NULL)
+    {
+      assert(number_of_given_args == number_of_regular_params && "func/macro call arity mismatch");
+      number_of_given_params = number_of_regular_params;
+    }
+    else
+    {
+      assert(number_of_given_args >= number_of_regular_params && "func/macro call arity mismatch");
+      number_of_given_params = number_of_regular_params + 1;
+    }
+    // eval args if func
     form_t *args = malloc(sizeof(form_t) * (length - 1));
-    for (int i = 1; i < length; i++)
+    if (is_macro)
     {
-      args[i - 1] = eval(forms[i], env);
+      for (int i = 1; i < length; i++)
+        args[i - 1] = forms[i];
     }
-    return call_builtin(first_word, args, length - 1);
+    else
+    {
+      for (int i = 1; i < length; i++)
+        args[i - 1] = eval(forms[i], env);
+    }
 
-  default:
-    break;
+    Binding *bindings = malloc(sizeof(Binding) * number_of_given_params);
+    const Env_t new_env = {.parent = env, .len = number_of_regular_params, .bindings = bindings};
+    for (int i = 0; i < number_of_regular_params; i++)
+    {
+      bindings[i] = (Binding){.word = parameters[i], .form = args[i]};
+    }
+    if (rest_param != NULL)
+    {
+      bindings[number_of_regular_params] =
+          (Binding){
+              .word = rest_param,
+              .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args)};
+    }
+    const form_t *bodies = func_macro->bodies;
+    const int n_of_bodies = func_macro->n_of_bodies;
+    form_t result = unit;
+    for (int i = 0; i < n_of_bodies; i++)
+    {
+      result = eval(bodies[i], &new_env);
+    }
+    if (is_macro)
+    {
+      result = eval(result, env);
+    }
+    return result;
   }
+  default:
+    printf("Error: unknown form tag\n");
+    exit(1);
 
     return form;
   }
@@ -625,9 +799,19 @@ int main(int argc, char **argv)
   st.state = UNSET;
   st.byte_offset = 0;
 
-  form_t form = parse(&st);
-  form_t evaluated = eval(form, NULL);
-  print_form(evaluated);
-  printf("\n");
+  int c;
+  while ((c = peek_char(&st)) >= 0)
+  {
+    if (classify_char(c) == WHITESPACE)
+    {
+      next_char(&st);
+      continue;
+    }
+    form_t form = parse(&st);
+    form_t evaluated = eval(form, NULL);
+    print_form(evaluated);
+    printf("\n");
+  }
+
   fclose(file);
 }
