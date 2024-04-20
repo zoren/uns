@@ -290,6 +290,10 @@ void print_form(form_t form)
 }
 
 const form_t unit = {.tag = form_list, .len = 0, .forms = NULL};
+
+const form_t zero = {.tag = form_word, .len = 1, .word = "0"};
+const form_t one = {.tag = form_word, .len = 1, .word = "1"};
+
 const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = " continue special value "};
 
 typedef struct
@@ -317,6 +321,12 @@ bool isDecimalWord(form_t word)
   return true;
 }
 
+form_t eq(form_t a, form_t b)
+{
+  assert(a.tag == form_word && b.tag == form_word && "eq requires words");
+  return a.len == b.len && memcmp(a.word, b.word, a.len) == 0 ? one : zero;
+}
+
 form_t add(form_t a, form_t b)
 {
   assert(isDecimalWord(a) && isDecimalWord(b) && "add requires decimal words");
@@ -333,6 +343,74 @@ form_t sub(form_t a, form_t b)
   char *result = malloc(12);
   sprintf(result, "%d", r);
   return (form_t){.tag = form_word, .len = strlen(result), .word = result};
+}
+
+form_t lt(form_t a, form_t b)
+{
+  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
+  return atoi(a.word) < atoi(b.word)? one : zero;
+}
+
+form_t le(form_t a, form_t b)
+{
+  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
+  return atoi(a.word) <= atoi(b.word)? one : zero;
+}
+
+form_t ge(form_t a, form_t b)
+{
+  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
+  return atoi(a.word) >= atoi(b.word)? one : zero;
+}
+
+form_t gt(form_t a, form_t b)
+{
+  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
+  return atoi(a.word) > atoi(b.word)? one : zero;
+}
+
+form_t isWord(form_t a)
+{
+  return a.tag == form_word ? one : zero;
+}
+
+form_t isList(form_t a)
+{
+  return a.tag == form_list ? one : zero;
+}
+
+form_t size(form_t a)
+{
+  assert(a.tag == form_list && "size requires a list");
+  return (form_t){.tag = form_word, .len = 1, .word = "1"};
+}
+
+form_t at(form_t a, form_t b)
+{
+  assert(a.tag == form_list && "at requires a list");
+  assert(isDecimalWord(b) && "at requires a decimal word");
+  const int index = atoi(b.word);
+  assert(index >= 0 && index < a.len && "at index out of bounds");
+  return a.forms[index];
+}
+
+form_t slice(form_t v, form_t i, form_t j)
+{
+  assert(v.tag == form_list && "slice requires a list");
+  assert(isDecimalWord(i) && "slice requires a decimal word");
+  assert(isDecimalWord(j) && "slice requires a decimal word");
+  const int start = atoi(i.word);
+  const int end = atoi(j.word);
+  assert(start >= 0 && start < v.len && "slice start index out of bounds");
+  assert(end >= 0 && end < v.len && "slice end index out of bounds");
+  assert(start <= end && "slice start index must be less than or equal to end index");
+  const int length = end - start;
+  form_t *forms = malloc(sizeof(form_t) * length);
+  for (int i = 0; i < length; i++)
+  {
+    forms[i] = v.forms[start + i];
+  }
+  return (form_t){.tag = form_list, .len = length, .forms = forms};
 }
 
 #include "specialforms.c"
