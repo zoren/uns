@@ -293,6 +293,20 @@ const form_t unit = {.tag = form_list, .len = 0, .forms = NULL};
 
 const form_t zero = {.tag = form_word, .len = 1, .word = "0"};
 const form_t one = {.tag = form_word, .len = 1, .word = "1"};
+const form_t two = {.tag = form_word, .len = 1, .word = "2"};
+
+form_t word_from_int(int n)
+{
+  switch(n)
+  {
+    case 0: return zero;
+    case 1: return one;
+    case 2: return two;
+  }
+  char *result = malloc(12);
+  sprintf(result, "%d", n);
+  return (form_t){.tag = form_word, .len = strlen(result), .word = result};
+}
 
 const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = " continue special value "};
 
@@ -332,9 +346,7 @@ form_t eq(form_t a, form_t b)
   {                                                                                  \
     assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
     const int r = atoi(a.word) op atoi(b.word);                                      \
-    char *result = malloc(12);                                                       \
-    sprintf(result, "%d", r);                                                        \
-    return (form_t){.tag = form_word, .len = strlen(result), .word = result};        \
+    return word_from_int(r);                                                         \
   }
 
 BUILTIN_TWO_DECIMAL_OP(add, +)
@@ -365,7 +377,7 @@ form_t is_list(form_t a)
 form_t size(form_t a)
 {
   assert(a.tag == form_list && "size requires a list");
-  return (form_t){.tag = form_word, .len = 1, .word = "1"};
+  return word_from_int(a.len);
 }
 
 form_t at(form_t a, form_t b)
@@ -388,6 +400,8 @@ form_t slice(form_t v, form_t i, form_t j)
   assert(end >= 0 && end < v.len && "slice end index out of bounds");
   assert(start <= end && "slice start index must be less than or equal to end index");
   const int length = end - start;
+  if (length == 0)
+    return unit;
   form_t *forms = malloc(sizeof(form_t) * length);
   for (int i = 0; i < length; i++)
   {
