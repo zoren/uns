@@ -70,9 +70,19 @@ export const print = (x) => {
 }
 
 const symbolContinue = Symbol.for('wuns-continue')
-const symbolFuncOrMacro = Symbol.for('wuns-func-or-macro')
 
 export const makeEvaluator = (funcEnv) => {
+  const apply = (f, args) => {
+    const { params, restParam, bodies } = f
+    const varValues = new Map()
+    for (let i = 0; i < params.length; i++) varValues.set(params[i], args[i])
+    if (restParam) varValues.set(restParam, makeList(...args.slice(params.length)))
+    const inner = { varValues, outer: null }
+    let result = null
+    for (const body of bodies) result = wunsEval(body, inner)
+    assert(result !== null, `function ${f} did not return a value`)
+    return result
+  }
   const wunsEval = (form, env) => {
     if (typeof form === 'string')
       while (true) {
@@ -122,24 +132,22 @@ export const makeEvaluator = (funcEnv) => {
           params = origParams.slice(0, -2)
           restParam = origParams.at(-1)
         }
-        const f = (...args) => {
-          const varValues = new Map()
-          for (let i = 0; i < params.length; i++) varValues.set(params[i], args[i])
-          if (restParam) varValues.set(restParam, makeList(...args.slice(params.length)))
-          const inner = { varValues, outer: null }
-          let result = null
-          for (const body of bodies) result = wunsEval(body, inner)
-          return result
-        }
-        f[symbolFuncOrMacro] = firstWord
-        funcEnv.set(fname, f)
+        const fObj = { isMacro: firstWord === 'macro', params, restParam, bodies }
+        funcEnv.set(fname, fObj)
         return unit
       }
     }
     const funcOrMacro = funcEnv.get(firstWord)
     assert(funcOrMacro, `function ${firstWord} not found ${print(form)}`)
-    if (funcOrMacro[symbolFuncOrMacro] === 'macro') return wunsEval(funcOrMacro(...args), env)
-    return funcOrMacro(...args.map((arg) => wunsEval(arg, env)))
+    if (typeof funcOrMacro === 'function')
+      return funcOrMacro(...args.map((arg) => wunsEval(arg, env)))
+    assert(typeof funcOrMacro === 'object', `expected function or object ${funcOrMacro}`)
+    const { isMacro } = funcOrMacro
+    if (isMacro) return wunsEval(apply(funcOrMacro, args), env)
+    return apply(
+      funcOrMacro,
+      args.map((arg) => wunsEval(arg, env)),
+    )
   }
   const gogomacro = (form) => {
     if (typeof form === 'string') return form
@@ -169,9 +177,12 @@ export const makeEvaluator = (funcEnv) => {
       }
     }
     const funcOrMacro = funcEnv.get(firstWord)
-    if (funcOrMacro && funcOrMacro[symbolFuncOrMacro] === 'macro')
-      return gogomacro(funcOrMacro(...args.map(gogomacro)))
+    if (funcOrMacro && funcOrMacro.isMacro)
+      return gogomacro(apply(funcOrMacro, args.map(gogomacro)))
     return makeList(firstWord, ...args.map(gogomacro))
   }
-  return (form) => wunsEval(gogomacro(form), null)
+  return {
+    gogoeval: (form) => wunsEval(gogomacro(form), null),
+    apply,
+  }
 }

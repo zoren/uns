@@ -45,10 +45,7 @@ const printTests = [
 
 for (const [expected, input] of printTests) {
   const actual = print(parse1(input))
-  assert(
-    expected === actual,
-    `for '${input}' expected ${expected} but got ${actual}`,
-  )
+  assert(expected === actual, `for '${input}' expected ${expected} but got ${actual}`)
 }
 
 const isDecIntWord = (s) => /^[0-9]+$/.test(s)
@@ -84,9 +81,8 @@ const mkFuncEnv = () => {
     }
     return v[ni]
   })
-  funcEnv.set('slice', (v, i, j) =>
-    Object.freeze(v.slice(Number(i), Number(j))),
-  )
+  funcEnv.set('slice', (v, i, j) => Object.freeze(v.slice(Number(i), Number(j))))
+  // would be nice to do without these two, as we would prefer no builtin var args
   funcEnv.set('concat', (...args) => Object.freeze(args.flat()))
   funcEnv.set('concat-words', (...ws) => ws.join(''))
 
@@ -161,7 +157,7 @@ const tests = `
 `
 {
   const funcEnv = mkFuncEnv()
-  const wunsEval = makeEvaluator(funcEnv)
+  const { gogoeval } = makeEvaluator(funcEnv)
   const forms = parseAll(tests)
 
   let prev = null
@@ -175,16 +171,13 @@ const tests = `
       if (prev === null) continue
       const peprev = print(eprev)
       const pesec = print(second)
-      assert(
-        peprev === pesec,
-        `for ${print(prev)} expected '${pesec}' but got '${peprev}'`,
-      )
+      assert(peprev === pesec, `for ${print(prev)} expected '${pesec}' but got '${peprev}'`)
       asserts++
       continue
     }
 
     prev = form
-    eprev = wunsEval(form)
+    eprev = gogoeval(form)
   }
   console.log('ran eval', asserts, 'asserts')
 }
@@ -194,12 +187,12 @@ import fs from 'fs'
 const selfWuns = fs.readFileSync('examples/self.wuns', 'utf8')
 const funcEnv = mkFuncEnv()
 
-const wunsEval = makeEvaluator(funcEnv)
+const { gogoeval, apply } = makeEvaluator(funcEnv)
 const forms = parseAll(selfWuns)
 
 for (const form of forms) {
   if (form === null) break
-  wunsEval(form)
+  gogoeval(form)
 }
 
 const stringToWunsList = (s) => {
@@ -210,7 +203,7 @@ const stringToWunsList = (s) => {
 const parseChars = funcEnv.get('parse-chars')
 
 for (const [expected, input] of parseTests) {
-  const actual = parseChars(stringToWunsList(input))
+  const actual = apply(parseChars, [stringToWunsList(input)])
   const jsonExpected = JSON.stringify(expected)
   const jsonActual = JSON.stringify(actual)
   assert(
@@ -220,7 +213,7 @@ for (const [expected, input] of parseTests) {
 }
 
 const parseAllWuns = funcEnv.get('parse-all')
-const selfForms = parseAllWuns(stringToWunsList(selfWuns))
+const selfForms = apply(parseAllWuns, [stringToWunsList(selfWuns)])
 if (selfForms.length !== forms.length) {
   console.log('selfForms', selfForms.length)
   console.log('forms', forms.length)
