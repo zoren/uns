@@ -558,9 +558,7 @@ const FuncMacro *get_func_macro(const char *name)
 
 form_t eval(form_t form, const Env_t *env)
 {
-  switch (form.tag)
-  {
-  case form_word:
+  if (is_word(form))
   {
     while (env != NULL)
     {
@@ -573,209 +571,203 @@ form_t eval(form_t form, const Env_t *env)
       }
       env = env->parent;
     }
-  }
-  case form_list:
-  {
-    const int length = form.len;
-    const form_t *forms = form.forms;
-    if (length == 0)
-      return unit;
-    const form_t first = forms[0];
-    if (!is_word(first))
-    {
-      printf("Error: first element of list is not a word\n");
-      exit(1);
-    }
-    const char *first_word = first.word;
-    if (strcmp(first_word, "quote") == 0)
-    {
-      assert(length == 2 && "quote takes exactly one argument");
-      return forms[1];
-    }
-    if (strcmp(first_word, "if") == 0)
-    {
-      assert(length == 4 && "if takes three arguments");
-      const form_t cond = eval(forms[1], env);
-      bool b = cond.tag == form_word &&
-               cond.len == 1 &&
-               cond.word[0] == '0';
-      return eval(forms[b ? 3 : 2], env);
-    }
-    bool is_let = strcmp(first_word, "let") == 0;
-    bool is_loop = strcmp(first_word, "loop") == 0;
-    if (is_let || is_loop)
-    {
-      assert(length >= 3 && "let/loop must have at least two arguments");
-      form_t binding_form = forms[1];
-      assert(binding_form.tag == form_list && "lelet/loopt and loop bindings must be a list");
-      const int binding_length = binding_form.len;
-      assert(binding_length % 2 == 0 && "let/loop bindings must be a list of even length");
-      const form_t *binding_forms = binding_form.forms;
-      Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
-      const Env_t new_env = {.parent = env, .len = binding_length / 2, .bindings = bindings};
-      for (int i = 0; i < binding_length; i += 2)
-      {
-        assert(binding_forms[i].tag == form_word && "let/loop bindings must be words");
-        bindings->word = binding_forms[i].word;
-        bindings->form = eval(binding_forms[i + 1], &new_env);
-        bindings++;
-      }
-      if (is_let)
-      {
-        for (int i = 2; i < length - 1; i++)
-          eval(forms[i], &new_env);
-        const form_t result = eval(forms[length - 1], &new_env);
-        free(bindings);
-        return result;
-      }
-      while (true)
-      {
-        for (int i = 2; i < length - 1; i++)
-          eval(forms[i], &new_env);
-        const form_t result = eval(forms[length - 1], &new_env);
-        if (result.tag == form_list &&
-            result.len > 0 &&
-            &result.forms[0] == &continueSpecialWord)
-        {
-          for (int i = 1; i < result.len; i++)
-            bindings[i - 1].form = result.forms[i];
-          continue;
-        }
-        free(bindings);
-        return result;
-      }
-    }
-    if (strcmp(first_word, "cont") == 0)
-    {
-      form_t *cont_args = malloc(sizeof(form_t) * (length));
-      cont_args[0] = continueSpecialWord;
-      for (int i = 1; i < length; i++)
-        cont_args[i] = eval(forms[i], env);
-      return (form_t){.tag = form_list, .len = length, .forms = cont_args};
-    }
-    {
-      const bool is_func = strcmp(first_word, "func") == 0;
-      const bool is_macro = strcmp(first_word, "macro") == 0;
-      if (is_func || is_macro)
-      {
-        assert(length >= 3 && "func/macro must have at least two arguments");
-        const form_t fname = forms[1];
-        assert(fname.tag == form_word && "func/macro name must be a word");
-        const form_t params = forms[2];
-        assert(params.tag == form_list && "func/macro params must be a list");
-        const int param_length = params.len;
-        for (int i = 0; i < param_length; i++)
-        {
-          assert(params.forms[i].tag == form_word && "func/macro params must be words");
-        }
-        const char *rest_param = NULL;
-        int arity;
-        if (param_length >= 2 && strcmp(params.forms[param_length - 2].word, ".."))
-        {
-          rest_param = params.forms[param_length - 1].word;
-          arity = param_length - 2;
-        }
-        else
-        {
-          arity = param_length;
-        }
-        const char **parameters = malloc(arity * sizeof(char *));
-        for (int i = 0; i < arity; i++)
-        {
-          parameters[i] = params.forms[i].word;
-        }
-        form_t *bodies = malloc(sizeof(form_t) * (length - 3));
-        for (int i = 3; i < length; i++)
-        {
-          bodies[i - 3] = forms[i];
-        }
-        FuncMacro func_macro = {
-            .is_macro = is_macro,
-            .arity = arity,
-            .parameters = parameters,
-            .rest_param = rest_param,
-            .n_of_bodies = length - 3,
-            .bodies = bodies,
-        };
-        FuncMacroBinding func_macro_binding = {.name = fname.word, .func_macro = func_macro};
-        insert_func_macro_binding(func_macro_binding);
-        {
-          const FuncMacro *test_func_macro = get_func_macro(fname.word);
-          assert(test_func_macro != NULL && "func/macro not found");
-          assert(test_func_macro->arity == arity && "func/macro arity mismatch");
-        }
-        return unit;
-      }
-    }
-    const int number_of_given_args = length - 1;
-    const FuncMacro *func_macro = get_func_macro(first_word);
-    if (func_macro == NULL)
-    {
-      form_t *args = malloc(sizeof(form_t) * number_of_given_args);
-      for (int i = 1; i < length; i++)
-        args[i - 1] = eval(forms[i], env);
-      return call_builtin(first_word, args, number_of_given_args);
-    }
-    const bool is_macro = func_macro->is_macro;
-    const int number_of_regular_params = func_macro->arity;
-    const char *rest_param = func_macro->rest_param;
-    const char **parameters = func_macro->parameters;
-    int number_of_given_params;
-    if (rest_param == NULL)
-    {
-      assert(number_of_given_args == number_of_regular_params && "func/macro call arity mismatch");
-      number_of_given_params = number_of_regular_params;
-    }
-    else
-    {
-      assert(number_of_given_args >= number_of_regular_params && "func/macro call arity mismatch");
-      number_of_given_params = number_of_regular_params + 1;
-    }
-    // eval args if func
-    form_t *args = malloc(sizeof(form_t) * (length - 1));
-    if (is_macro)
-    {
-      for (int i = 1; i < length; i++)
-        args[i - 1] = forms[i];
-    }
-    else
-    {
-      for (int i = 1; i < length; i++)
-        args[i - 1] = eval(forms[i], env);
-    }
-
-    Binding *bindings = malloc(sizeof(Binding) * number_of_given_params);
-    const Env_t new_env = {.parent = env, .len = number_of_regular_params, .bindings = bindings};
-    for (int i = 0; i < number_of_regular_params; i++)
-    {
-      bindings[i] = (Binding){.word = parameters[i], .form = args[i]};
-    }
-    if (rest_param != NULL)
-    {
-      bindings[number_of_regular_params] =
-          (Binding){
-              .word = rest_param,
-              .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args)};
-    }
-    const form_t *bodies = func_macro->bodies;
-    const int n_of_bodies = func_macro->n_of_bodies;
-    form_t result = unit;
-    for (int i = 0; i < n_of_bodies; i++)
-    {
-      result = eval(bodies[i], &new_env);
-    }
-    if (is_macro)
-    {
-      result = eval(result, env);
-    }
-    return result;
-  }
-  default:
-    printf("Error: unknown form tag\n");
+    printf("Error: word not found in env %s\n", form.word);
     exit(1);
-
-    return form;
   }
+  assert(is_list(form) && "eval requires a list at this point");
+
+  const int length = form.len;
+  if (length == 0)
+    return unit;
+  const form_t *forms = form.forms;  
+  const form_t first = forms[0];
+  assert(is_word(first) && "first element a list must be a word");
+  const char *first_word = first.word;
+  if (strcmp(first_word, "quote") == 0)
+  {
+    assert(length == 2 && "quote takes exactly one argument");
+    return forms[1];
+  }
+  if (strcmp(first_word, "if") == 0)
+  {
+    assert(length == 4 && "if takes three arguments");
+    const form_t cond = eval(forms[1], env);
+    bool b = cond.tag == form_word &&
+             cond.len == 1 &&
+             cond.word[0] == '0';
+    return eval(forms[b ? 3 : 2], env);
+  }
+  bool is_let = strcmp(first_word, "let") == 0;
+  bool is_loop = strcmp(first_word, "loop") == 0;
+  if (is_let || is_loop)
+  {
+    assert(length >= 3 && "let/loop must have at least two arguments");
+    form_t binding_form = forms[1];
+    assert(binding_form.tag == form_list && "lelet/loopt and loop bindings must be a list");
+    const int binding_length = binding_form.len;
+    assert(binding_length % 2 == 0 && "let/loop bindings must be a list of even length");
+    const form_t *binding_forms = binding_form.forms;
+    Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
+    const Env_t new_env = {.parent = env, .len = binding_length / 2, .bindings = bindings};
+    for (int i = 0; i < binding_length; i += 2)
+    {
+      assert(binding_forms[i].tag == form_word && "let/loop bindings must be words");
+      bindings->word = binding_forms[i].word;
+      bindings->form = eval(binding_forms[i + 1], &new_env);
+      bindings++;
+    }
+    if (is_let)
+    {
+      for (int i = 2; i < length - 1; i++)
+        eval(forms[i], &new_env);
+      const form_t result = eval(forms[length - 1], &new_env);
+      free(bindings);
+      return result;
+    }
+    while (true)
+    {
+      for (int i = 2; i < length - 1; i++)
+        eval(forms[i], &new_env);
+      const form_t result = eval(forms[length - 1], &new_env);
+      if (result.tag == form_list &&
+          result.len > 0 &&
+          &result.forms[0] == &continueSpecialWord)
+      {
+        for (int i = 1; i < result.len; i++)
+          bindings[i - 1].form = result.forms[i];
+        continue;
+      }
+      free(bindings);
+      return result;
+    }
+  }
+  if (strcmp(first_word, "cont") == 0)
+  {
+    form_t *cont_args = malloc(sizeof(form_t) * (length));
+    cont_args[0] = continueSpecialWord;
+    for (int i = 1; i < length; i++)
+      cont_args[i] = eval(forms[i], env);
+    return (form_t){.tag = form_list, .len = length, .forms = cont_args};
+  }
+  {
+    const bool is_func = strcmp(first_word, "func") == 0;
+    const bool is_macro = strcmp(first_word, "macro") == 0;
+    if (is_func || is_macro)
+    {
+      assert(length >= 3 && "func/macro must have at least two arguments");
+      const form_t fname = forms[1];
+      assert(fname.tag == form_word && "func/macro name must be a word");
+      const form_t params = forms[2];
+      assert(params.tag == form_list && "func/macro params must be a list");
+      const int param_length = params.len;
+      for (int i = 0; i < param_length; i++)
+      {
+        assert(params.forms[i].tag == form_word && "func/macro params must be words");
+      }
+      const char *rest_param = NULL;
+      int arity;
+      if (param_length >= 2 && strcmp(params.forms[param_length - 2].word, ".."))
+      {
+        rest_param = params.forms[param_length - 1].word;
+        arity = param_length - 2;
+      }
+      else
+      {
+        arity = param_length;
+      }
+      const char **parameters = malloc(arity * sizeof(char *));
+      for (int i = 0; i < arity; i++)
+      {
+        parameters[i] = params.forms[i].word;
+      }
+      form_t *bodies = malloc(sizeof(form_t) * (length - 3));
+      for (int i = 3; i < length; i++)
+      {
+        bodies[i - 3] = forms[i];
+      }
+      FuncMacro func_macro = {
+          .is_macro = is_macro,
+          .arity = arity,
+          .parameters = parameters,
+          .rest_param = rest_param,
+          .n_of_bodies = length - 3,
+          .bodies = bodies,
+      };
+      FuncMacroBinding func_macro_binding = {.name = fname.word, .func_macro = func_macro};
+      insert_func_macro_binding(func_macro_binding);
+      {
+        const FuncMacro *test_func_macro = get_func_macro(fname.word);
+        assert(test_func_macro != NULL && "func/macro not found");
+        assert(test_func_macro->arity == arity && "func/macro arity mismatch");
+      }
+      return unit;
+    }
+  }
+
+  const int number_of_given_args = length - 1;
+  const FuncMacro *func_macro = get_func_macro(first_word);
+  if (func_macro == NULL)
+  {
+    form_t *args = malloc(sizeof(form_t) * number_of_given_args);
+    for (int i = 1; i < length; i++)
+      args[i - 1] = eval(forms[i], env);
+    return call_builtin(first_word, args, number_of_given_args);
+  }
+  const bool is_macro = func_macro->is_macro;
+  const int number_of_regular_params = func_macro->arity;
+  const char *rest_param = func_macro->rest_param;
+  const char **parameters = func_macro->parameters;
+  int number_of_given_params;
+  if (rest_param == NULL)
+  {
+    assert(number_of_given_args == number_of_regular_params && "func/macro call arity mismatch");
+    number_of_given_params = number_of_regular_params;
+  }
+  else
+  {
+    assert(number_of_given_args >= number_of_regular_params && "func/macro call arity mismatch");
+    number_of_given_params = number_of_regular_params + 1;
+  }
+
+
+  // eval args if func
+  form_t *args = malloc(sizeof(form_t) * (length - 1));
+  if (is_macro)
+  {
+    for (int i = 1; i < length; i++)
+      args[i - 1] = forms[i];
+  }
+  else
+  {
+    for (int i = 1; i < length; i++)
+      args[i - 1] = eval(forms[i], env);
+  }
+
+  Binding *bindings = malloc(sizeof(Binding) * number_of_given_params);
+  const Env_t new_env = {.parent = env, .len = number_of_regular_params, .bindings = bindings};
+  for (int i = 0; i < number_of_regular_params; i++)
+  {
+    bindings[i] = (Binding){.word = parameters[i], .form = args[i]};
+  }
+  if (rest_param != NULL)
+  {
+    bindings[number_of_regular_params] =
+        (Binding){
+            .word = rest_param,
+            .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args)};
+  }
+  const form_t *bodies = func_macro->bodies;
+  const int n_of_bodies = func_macro->n_of_bodies;
+  form_t result = unit;
+  for (int i = 0; i < n_of_bodies; i++)
+  {
+    result = eval(bodies[i], &new_env);
+  }
+  if (is_macro)
+  {
+    result = eval(result, env);
+  }
+  return result;
 }
 
 int main(int argc, char **argv)
