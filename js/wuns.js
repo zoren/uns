@@ -21,8 +21,8 @@ const lexerFromString = (s) => {
   }
 }
 
-const tuple = (...args) => Object.freeze(args)
-export const unit = tuple()
+export const unit = Object.freeze([])
+export const makeList = (...args) => args.length === 0 ? unit : Object.freeze(args)
 
 const makeParserFromLexer = (lexNext) => {
   let token = lexNext()
@@ -40,7 +40,7 @@ const makeParserFromLexer = (lexNext) => {
       list.push(go())
     }
     nextToken()
-    return list.length === 0 ? unit : Object.freeze(list)
+    return makeList(...list)
   }
   return go
 }
@@ -65,8 +65,8 @@ export const parseAll = (s) => {
 
 export const print = (x) => {
   if (typeof x === 'string') return x
-  if (Array.isArray(x)) return `[${x.map(print).join(' ')}]`
-  throw new Error(`cannot print ${x}`)
+  assert(Array.isArray(x), `cannot print ${x}`)
+  return `[${x.map(print).join(' ')}]`
 }
 
 const symbolContinue = Symbol.for('wuns-continue')

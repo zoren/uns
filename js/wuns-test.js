@@ -1,4 +1,4 @@
-import { print, makeEvaluator, parse1, parseAll, unit } from './wuns.js'
+import { print, makeEvaluator, parse1, parseAll, unit, makeList } from './wuns.js'
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error('test failed ' + msg)
@@ -62,7 +62,11 @@ const mkFuncEnv = () => {
   funcEnv.set('bit-and', (a, b) => String(Number(a) & Number(b)))
   funcEnv.set('bit-or', (a, b) => String(Number(a) | Number(b)))
 
-  funcEnv.set('eq', (a, b) => boolToWord(a === b))
+  funcEnv.set('eq', (a, b) => {
+    assert(typeof a === 'string', 'eq expects strings')
+    assert(typeof b === 'string', 'eq expects strings')
+    return boolToWord(a === b)
+  })
   funcEnv.set('lt', (a, b) => boolToWord(Number(a) < Number(b)))
   funcEnv.set('gt', (a, b) => boolToWord(Number(a) > Number(b)))
   funcEnv.set('ge', (a, b) => boolToWord(Number(a) >= Number(b)))
@@ -83,7 +87,7 @@ const mkFuncEnv = () => {
   funcEnv.set('slice', (v, i, j) =>
     Object.freeze(v.slice(Number(i), Number(j))),
   )
-  funcEnv.set('list', (...args) => Object.freeze(args))
+  funcEnv.set('list', makeList)
   funcEnv.set('concat', (...args) => Object.freeze(args.flat()))
   funcEnv.set('concat-words', (...ws) => ws.join(''))
 
