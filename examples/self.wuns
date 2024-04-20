@@ -18,6 +18,7 @@
 [func second [l] [at l [quote 1]]]
 [func third [l] [at l [quote 2]]]
 [func rest [l] [slice l [quote 1] [size l]]]
+[func list [.. l] l]
 
 [macro if-not [cond then else]
   [list [quote if] cond else then]]

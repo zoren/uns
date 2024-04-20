@@ -87,7 +87,6 @@ const mkFuncEnv = () => {
   funcEnv.set('slice', (v, i, j) =>
     Object.freeze(v.slice(Number(i), Number(j))),
   )
-  funcEnv.set('list', makeList)
   funcEnv.set('concat', (...args) => Object.freeze(args.flat()))
   funcEnv.set('concat-words', (...ws) => ws.join(''))
 
