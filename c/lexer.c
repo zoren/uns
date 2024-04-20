@@ -327,54 +327,37 @@ form_t eq(form_t a, form_t b)
   return a.len == b.len && memcmp(a.word, b.word, a.len) == 0 ? one : zero;
 }
 
-form_t add(form_t a, form_t b)
-{
-  assert(isDecimalWord(a) && isDecimalWord(b) && "add requires decimal words");
-  const int r = atoi(a.word) + atoi(b.word);
-  char *result = malloc(12);
-  sprintf(result, "%d", r);
-  return (form_t){.tag = form_word, .len = strlen(result), .word = result};
-}
+#define BUILTIN_TWO_DECIMAL_OP(name, op)                                             \
+  form_t name(form_t a, form_t b)                                                    \
+  {                                                                                  \
+    assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
+    const int r = atoi(a.word) op atoi(b.word);                                      \
+    char *result = malloc(12);                                                       \
+    sprintf(result, "%d", r);                                                        \
+    return (form_t){.tag = form_word, .len = strlen(result), .word = result};        \
+  }
 
-form_t sub(form_t a, form_t b)
-{
-  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
-  const int r = atoi(a.word) - atoi(b.word);
-  char *result = malloc(12);
-  sprintf(result, "%d", r);
-  return (form_t){.tag = form_word, .len = strlen(result), .word = result};
-}
+BUILTIN_TWO_DECIMAL_OP(add, +)
+BUILTIN_TWO_DECIMAL_OP(sub, -)
 
-form_t lt(form_t a, form_t b)
-{
-  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
-  return atoi(a.word) < atoi(b.word)? one : zero;
-}
+#define BUILTIN_TWO_DECIMAL_CMP(name, op)                                            \
+  form_t name(form_t a, form_t b)                                                    \
+  {                                                                                  \
+    assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
+    return atoi(a.word) op atoi(b.word) ? one : zero;                                \
+  }
 
-form_t le(form_t a, form_t b)
-{
-  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
-  return atoi(a.word) <= atoi(b.word)? one : zero;
-}
+BUILTIN_TWO_DECIMAL_CMP(lt, <)
+BUILTIN_TWO_DECIMAL_CMP(le, <=)
+BUILTIN_TWO_DECIMAL_CMP(ge, >=)
+BUILTIN_TWO_DECIMAL_CMP(gt, >)
 
-form_t ge(form_t a, form_t b)
-{
-  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
-  return atoi(a.word) >= atoi(b.word)? one : zero;
-}
-
-form_t gt(form_t a, form_t b)
-{
-  assert(isDecimalWord(a) && isDecimalWord(b) && "sub requires decimal words");
-  return atoi(a.word) > atoi(b.word)? one : zero;
-}
-
-form_t isWord(form_t a)
+form_t is_word(form_t a)
 {
   return a.tag == form_word ? one : zero;
 }
 
-form_t isList(form_t a)
+form_t is_list(form_t a)
 {
   return a.tag == form_list ? one : zero;
 }
@@ -413,7 +396,80 @@ form_t slice(form_t v, form_t i, form_t j)
   return (form_t){.tag = form_list, .len = length, .forms = forms};
 }
 
-#include "specialforms.c"
+typedef struct
+{
+  const char *name;
+  form_t (*func)(form_t);
+} built_in_func1_t;
+
+const built_in_func1_t built_in_funcs1[] = {
+    {"is-word", is_word},
+    {"is-list", is_list},
+    {"size", size},
+};
+
+typedef struct
+{
+  const char *name;
+  form_t (*func)(form_t, form_t);
+} built_in_func2_t;
+
+const built_in_func2_t built_in_funcs2[] = {
+    {"eq", eq},
+    {"add", add},
+    {"sub", sub},
+    {"lt", lt},
+    {"le", le},
+    {"ge", ge},
+    {"gt", gt},
+    {"at", at},
+};
+
+typedef struct
+{
+  const char *name;
+  form_t (*func)(form_t, form_t, form_t);
+} built_in_func3_t;
+
+const built_in_func3_t built_in_funcs3[] = {
+    {"slice", slice},
+};
+
+form_t call_builtin(const char *name, const struct form *args, const int count)
+{
+  switch (count)
+  {
+  case 1:
+    for (int i = 0; i < sizeof(built_in_funcs1) / sizeof(built_in_funcs1[0]); i++)
+    {
+      if (strcmp(name, built_in_funcs1[i].name) == 0)
+      {
+        return built_in_funcs1[i].func(args[0]);
+      }
+    }
+    break;
+  case 2:
+    for (int i = 0; i < sizeof(built_in_funcs2) / sizeof(built_in_funcs2[0]); i++)
+    {
+      if (strcmp(name, built_in_funcs2[i].name) == 0)
+      {
+        return built_in_funcs2[i].func(args[0], args[1]);
+      }
+    }
+    break;
+  case 3:
+    for (int i = 0; i < sizeof(built_in_funcs3) / sizeof(built_in_funcs3[0]); i++)
+    {
+      if (strcmp(name, built_in_funcs3[i].name) == 0)
+      {
+        return built_in_funcs3[i].func(args[0], args[1], args[2]);
+      }
+    }
+    break;
+  }
+  printf("Error: unknown builtin function %s with arity %d\n", name, count);
+  exit(1);
+}
 
 form_t eval(form_t form, Env_t *env)
 {
@@ -446,19 +502,12 @@ form_t eval(form_t form, Env_t *env)
       exit(1);
     }
     const char *first_word = first.word;
-    struct special_form *specform = in_word_set(first_word, strlen(first_word));
-    if (specform == NULL)
+    if (strcmp(first_word, "quote") == 0)
     {
-      printf("Error: unknown special form\n");
-      exit(1);
-    }
-    const special_t specialFormValue = specform->value;
-    switch (specialFormValue)
-    {
-    case QUOTE:
       assert(length == 2 && "quote takes exactly one argument");
       return forms[1];
-    case IF:
+    }
+    if (strcmp(first_word, "if") == 0)
     {
       assert(length == 4 && "if takes three arguments");
       const form_t cond = eval(forms[1], env);
@@ -467,25 +516,26 @@ form_t eval(form_t form, Env_t *env)
                cond.word[0] == '0';
       return eval(forms[b ? 3 : 2], env);
     }
-    case LET:
-    case LOOP:
+    bool is_let = strcmp(first_word, "let") == 0;
+    bool is_loop = strcmp(first_word, "loop") == 0;
+    if (is_let || is_loop)
     {
-      assert(length >= 3 && "let and loop must have at least two arguments");
+      assert(length >= 3 && "let/loop must have at least two arguments");
       form_t binding_form = forms[1];
-      assert(binding_form.tag == form_list && "let bindings must be a list");
+      assert(binding_form.tag == form_list && "lelet/loopt and loop bindings must be a list");
       const int binding_length = binding_form.len;
-      assert(binding_length % 2 == 0 && "let bindings must be a list of even length");
+      assert(binding_length % 2 == 0 && "let/loop bindings must be a list of even length");
       const form_t *binding_forms = binding_form.forms;
       Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
       Env_t new_env = {.parent = env, .len = binding_length / 2, .bindings = bindings};
       for (int i = 0; i < binding_length; i += 2)
       {
-        assert(binding_forms[i].tag == form_word && "let bindings must be words");
+        assert(binding_forms[i].tag == form_word && "let/loop bindings must be words");
         bindings->word = binding_forms[i].word;
         bindings->form = eval(binding_forms[i + 1], &new_env);
         bindings++;
       }
-      if (specialFormValue == LET)
+      if (is_let)
       {
         for (int i = 2; i < length - 1; i++)
           eval(forms[i], &new_env);
@@ -510,7 +560,7 @@ form_t eval(form_t form, Env_t *env)
         return result;
       }
     }
-    case CONT:
+    if (strcmp(first_word, "cont") == 0)
     {
       form_t *cont_args = malloc(sizeof(form_t) * (length));
       cont_args[0] = continueSpecialWord;
@@ -518,10 +568,19 @@ form_t eval(form_t form, Env_t *env)
         cont_args[i] = eval(forms[i], env);
       return (form_t){.tag = form_list, .len = length, .forms = cont_args};
     }
-    default:
-      printf("Error: unknown special form\n");
+    const bool is_func = strcmp(first_word, "func") == 0;
+    const bool is_macro = strcmp(first_word, "macro") == 0;
+    if (is_func || is_macro)
+    {
+      printf("Error: func/macro not implemented\n");
       exit(1);
     }
+    form_t *args = malloc(sizeof(form_t) * (length - 1));
+    for (int i = 1; i < length; i++)
+    {
+      args[i - 1] = eval(forms[i], env);
+    }
+    return call_builtin(first_word, args, length - 1);
 
   default:
     break;
