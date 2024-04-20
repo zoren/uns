@@ -96,11 +96,15 @@ export const makeEvaluator = (funcEnv) => {
         const varValues = new Map()
         const inner = { varValues, outer: env }
         for (let i = 0; i < bindings.length - 1; i += 2) varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
+        let result = null
+        if (firstWord === 'let') {
+          for (const body of bodies) result = wunsEval(body, inner)
+          return result
+        }
         while (true) {
-          for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
-          const elast = wunsEval(bodies.at(-1), inner)
-          if (firstWord !== 'loop' || !elast[symbolContinue]) return elast
-          for (let i = 0; i < elast.length; i++) varValues.set(bindings[i * 2], elast[i])
+          for (const body of bodies) result = wunsEval(body, inner)
+          if (!result[symbolContinue]) return result
+          for (let i = 0; i < result.length; i++) varValues.set(bindings[i * 2], result[i])
         }
       }
       case 'cont': {
@@ -122,8 +126,9 @@ export const makeEvaluator = (funcEnv) => {
           for (let i = 0; i < params.length; i++) varValues.set(params[i], args[i])
           if (restParam) varValues.set(restParam, makeList(...args.slice(params.length)))
           const inner = { varValues, outer: null }
-          for (const body of bodies.slice(0, -1)) wunsEval(body, inner)
-          return wunsEval(bodies.at(-1), inner)
+          let result = null
+          for (const body of bodies) result = wunsEval(body, inner)
+          return result
         }
         f[symbolFuncOrMacro] = firstWord
         funcEnv.set(fname, f)
