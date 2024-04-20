@@ -1,9 +1,9 @@
-
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <limits.h>
 
 typedef enum
 {
@@ -260,7 +260,8 @@ form_t word_from_int(int n)
 
 const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = "*continue*"};
 
-void assert_word_or_list(form_t a) {
+void assert_word_or_list(form_t a)
+{
   assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
 }
 
@@ -285,15 +286,25 @@ bool isDecimalWord(form_t word)
 
 form_t eq(form_t a, form_t b)
 {
-  assert(a.tag == form_word && b.tag == form_word && "eq requires words");
+  assert(is_word(a) && is_word(b) && "eq requires words");
   return a.len == b.len && memcmp(a.word, b.word, a.len) == 0 ? one : zero;
+}
+
+int word_to_int(form_t a)
+{
+  assert(isDecimalWord(a) && "word_to_int requires a decimal word");
+  char *endptr;
+  long int a_val = strtol(a.word, &endptr, 10);
+  assert(*endptr == '\0' && "word_to_int requires a decimal word");
+  assert(a_val <= INT_MAX && a_val >= INT_MIN && "word_to_int overflow");
+  return a_val;
 }
 
 #define BUILTIN_TWO_DECIMAL_OP(name, op)                                             \
   form_t name(form_t a, form_t b)                                                    \
   {                                                                                  \
     assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
-    const int r = atoi(a.word) op atoi(b.word);                                      \
+    const int r = word_to_int(a) op word_to_int(b);                                      \
     return word_from_int(r);                                                         \
   }
 
@@ -304,7 +315,7 @@ BUILTIN_TWO_DECIMAL_OP(sub, -)
   form_t name(form_t a, form_t b)                                                    \
   {                                                                                  \
     assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
-    return atoi(a.word) op atoi(b.word) ? one : zero;                                \
+    return word_to_int(a) op word_to_int(b) ? one : zero;                                \
   }
 
 BUILTIN_TWO_DECIMAL_CMP(lt, <)
@@ -333,7 +344,7 @@ form_t at(form_t a, form_t b)
   // indexing words?
   assert(is_list(a) && "at requires a list");
   assert(isDecimalWord(b) && "at requires a decimal word");
-  const int index = atoi(b.word);
+  const int index = word_to_int(b);
   assert(index >= 0 && index < a.len && "at index out of bounds");
   return a.forms[index];
 }
@@ -360,8 +371,8 @@ form_t bi_slice(form_t v, form_t i, form_t j)
   assert(is_list(v) && "slice requires a list");
   assert(isDecimalWord(i) && "slice requires a decimal word");
   assert(isDecimalWord(j) && "slice requires a decimal word");
-  const int start = atoi(i.word);
-  const int end = atoi(j.word);
+  const int start = word_to_int(i);
+  const int end = word_to_int(j);
   return slice(v.len, v.forms, start, end);
 }
 
@@ -521,7 +532,7 @@ form_t eval(form_t form, const Env_t *env)
   if (is_word(form))
   {
     const char *word = form.word;
-    Env_t *cur_env = (Env_t*)env;
+    Env_t *cur_env = (Env_t *)env;
     while (cur_env != NULL)
     {
       for (int i = 0; i < cur_env->len; i++)
@@ -531,7 +542,7 @@ form_t eval(form_t form, const Env_t *env)
           return cur_env->bindings[i].form;
         }
       }
-      cur_env = (Env_t*)cur_env->parent;
+      cur_env = (Env_t *)cur_env->parent;
     }
     printf("Error: word not found in env %s\n", word);
     exit(1);
