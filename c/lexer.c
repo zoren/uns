@@ -15,35 +15,6 @@ typedef enum
   WHITESPACE
 } token_type;
 
-typedef struct
-{
-  token_type type;
-  int len;
-  const char *word;
-} token;
-
-void print_token(token t)
-{
-  switch (t.type)
-  {
-  case WORD:
-    printf("WORD: %.*s  (%d)\n", t.len, t.word, t.len);
-    break;
-  case START_LIST:
-    printf("START_LIST\n");
-    break;
-  case END_LIST:
-    printf("END_LIST\n");
-    break;
-  case WHITESPACE:
-    printf("WHITESPACE\n");
-    break;
-  default:
-    printf("UNSET: ");
-    break;
-  }
-}
-
 #define BUFSIZE (128 - 1)
 
 typedef struct
@@ -89,32 +60,6 @@ token_type fill(FileLexerState *st)
   st->lim[0] = 0; // append sentinel symbol
 
   return 0;
-}
-
-char getCurrentChar(FileLexerState *st)
-{
-  if (st->cur >= st->lim)
-  {
-    const token_type t = fill(st);
-    if (t != 0)
-    {
-      return 0;
-    }
-  }
-  return *st->cur;
-}
-
-bool hasMoreChars(FileLexerState *st)
-{
-  if (st->cur >= st->lim)
-  {
-    const token_type t = fill(st);
-    if (t != 0)
-    {
-      return false;
-    }
-  }
-  return true;
 }
 
 int peek_char(FileLexerState *st)
