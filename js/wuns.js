@@ -95,7 +95,8 @@ export const makeEvaluator = (funcEnv) => {
         const [bindings, ...bodies] = args
         const varValues = new Map()
         const inner = { varValues, outer: env }
-        for (let i = 0; i < bindings.length - 1; i += 2) varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
+        for (let i = 0; i < bindings.length - 1; i += 2)
+          varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
         let result = null
         if (firstWord === 'let') {
           for (const body of bodies) result = wunsEval(body, inner)
@@ -149,23 +150,28 @@ export const makeEvaluator = (funcEnv) => {
       case 'quote':
         return form
       case 'if':
-        return [firstWord, ...args.map(gogomacro)]
+        return makeList(firstWord, ...args.map(gogomacro))
       case 'let':
       case 'loop': {
         const [bindings, ...bodies] = args
-        return [firstWord, bindings.map((borf, i) => (i % 2 === 0 ? borf : gogomacro(borf))), ...bodies.map(gogomacro)]
+        return makeList(
+          firstWord,
+          bindings.map((borf, i) => (i % 2 === 0 ? borf : gogomacro(borf))),
+          ...bodies.map(gogomacro),
+        )
       }
       case 'cont':
-        return [firstWord, ...args.map(gogomacro)]
+        return makeList(firstWord, ...args.map(gogomacro))
       case 'func':
       case 'macro': {
         const [fname, origParams, ...bodies] = args
-        return [firstWord, fname, origParams, ...bodies.map(gogomacro)]
+        return makeList(firstWord, fname, origParams, ...bodies.map(gogomacro))
       }
     }
     const funcOrMacro = funcEnv.get(firstWord)
-    if (funcOrMacro && funcOrMacro[symbolFuncOrMacro] === 'macro') return gogomacro(funcOrMacro(...args.map(gogomacro)))
-    return [firstWord, ...args.map(gogomacro)]
+    if (funcOrMacro && funcOrMacro[symbolFuncOrMacro] === 'macro')
+      return gogomacro(funcOrMacro(...args.map(gogomacro)))
+    return makeList(firstWord, ...args.map(gogomacro))
   }
   return (form) => wunsEval(gogomacro(form), null)
 }
