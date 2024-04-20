@@ -148,28 +148,23 @@ next:
     goto next;
   case WORD:
   {
-    form_t form;
-    form.tag = form_word;
     const char *word_start = st->cur;
     do
     {
       next_char(st);
     } while (classify_char(peek_char(st)) == WORD);
     const int len = st->cur - word_start;
-    form.len = len;
-    form.word = malloc(len + 1);
-    memcpy(form.word, word_start, len);
-    form.word[len] = '\0';
-    return form;
+    char *word = malloc(len + 1);
+    memcpy(word, word_start, len);
+    word[len] = '\0';
+    return (form_t){.tag = form_word, .len = len, .word = word};
   }
   case START_LIST:
   {
     next_char(st);
-    form_t form;
-    form.tag = form_list;
     // todo make them growable, and trim to size on return
-    form.forms = malloc(sizeof(form_t) * 10);
-    form.len = 0;
+    form_t *forms = malloc(sizeof(form_t) * 10);
+    int len = 0;
     while (1)
     {
       c = peek_char(st);
@@ -182,7 +177,7 @@ next:
       if (class == END_LIST)
       {
         next_char(st);
-        return form;
+        break;
       }
       if (class == WHITESPACE)
       {
@@ -190,14 +185,14 @@ next:
         continue;
       }
 
-      if (form.len == 10)
+      if (len == 10)
       {
         printf("Error: list too long\n");
         exit(1);
       }
-      form.forms[form.len++] = parse(st);
+      forms[len++] = parse(st);
     }
-    return form;
+    return (form_t){.tag = form_list, .len = len, .forms = forms};
   }
 
   default:
@@ -304,7 +299,7 @@ int word_to_int(form_t a)
   form_t name(form_t a, form_t b)                                                    \
   {                                                                                  \
     assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
-    const int r = word_to_int(a) op word_to_int(b);                                      \
+    const int r = word_to_int(a) op word_to_int(b);                                  \
     return word_from_int(r);                                                         \
   }
 
@@ -315,7 +310,7 @@ BUILTIN_TWO_DECIMAL_OP(sub, -)
   form_t name(form_t a, form_t b)                                                    \
   {                                                                                  \
     assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
-    return word_to_int(a) op word_to_int(b) ? one : zero;                                \
+    return word_to_int(a) op word_to_int(b) ? one : zero;                            \
   }
 
 BUILTIN_TWO_DECIMAL_CMP(lt, <)
@@ -565,7 +560,7 @@ form_t eval(form_t form, const Env_t *env)
   {
     assert(length == 4 && "if takes three arguments");
     const form_t cond = eval(forms[1], env);
-    bool b = cond.tag == form_word &&
+    bool b = is_word(cond) &&
              cond.len == 1 &&
              cond.word[0] == '0';
     return eval(forms[b ? 3 : 2], env);
