@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <ctype.h>
 
 typedef enum
 {
@@ -261,15 +260,19 @@ form_t word_from_int(int n)
 
 const form_t continueSpecialWord = {.tag = form_word, .len = 0, .word = "*continue*"};
 
+void assert_word_or_list(form_t a) {
+  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
+}
+
 bool is_word(form_t a)
 {
-  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
+  assert_word_or_list(a);
   return a.tag == form_word;
 }
 
 bool is_list(form_t a)
 {
-  assert(a.tag == form_word || a.tag == form_list && "tag must be word or list");
+  assert_word_or_list(a);
   return a.tag == form_list;
 }
 
@@ -277,12 +280,7 @@ bool isDecimalWord(form_t word)
 {
   if (!is_word(word))
     return false;
-  for (int i = 0; i < word.len; i++)
-  {
-    if (isdigit(word.word[i]) == 0)
-      return false;
-  }
-  return true;
+  return word.len == (ssize_t)strspn(word.word, "0123456789");
 }
 
 form_t eq(form_t a, form_t b)
