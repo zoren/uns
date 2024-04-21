@@ -255,12 +255,6 @@ bool is_list(form_t a)
   return a.tag == form_list;
 }
 
-form_t bi_eq(form_t a, form_t b)
-{
-  assert(is_word(a) && is_word(b) && "eq requires words");
-  return a.len == b.len && memcmp(a.word, b.word, a.len) == 0 ? one : zero;
-}
-
 int word_to_int(form_t a)
 {
   char *endptr;
@@ -279,6 +273,14 @@ int word_to_int(form_t a)
 
 BUILTIN_TWO_DECIMAL_OP(bi_add, +)
 BUILTIN_TWO_DECIMAL_OP(bi_sub, -)
+BUILTIN_TWO_DECIMAL_OP(bi_bit_and, &)
+BUILTIN_TWO_DECIMAL_OP(bi_bit_or, |)
+
+form_t bi_eq(form_t a, form_t b)
+{
+  assert(is_word(a) && is_word(b) && "eq requires words");
+  return a.len == b.len && memcmp(a.word, b.word, a.len) == 0 ? one : zero;
+}
 
 #define BUILTIN_TWO_DECIMAL_CMP(name, op)                 \
   form_t name(form_t a, form_t b)                         \
@@ -373,12 +375,16 @@ built_in_func_t get_builtin(const char *name)
   if (strcmp(name, "size") == 0)
     return (built_in_func_t){.parameters = 1, .func1 = bi_size};
 
-  if (strcmp(name, "eq") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = bi_eq};
   if (strcmp(name, "add") == 0)
     return (built_in_func_t){.parameters = 2, .func2 = bi_add};
   if (strcmp(name, "sub") == 0)
     return (built_in_func_t){.parameters = 2, .func2 = bi_sub};
+  if (strcmp(name, "bit-and") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_and};
+  if (strcmp(name, "bit-or") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_or};
+  if (strcmp(name, "eq") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = bi_eq};
   if (strcmp(name, "lt") == 0)
     return (built_in_func_t){.parameters = 2, .func2 = bi_lt};
   if (strcmp(name, "le") == 0)
