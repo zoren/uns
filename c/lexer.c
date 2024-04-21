@@ -606,7 +606,7 @@ form_t eval(form_t form, const Env_t *env)
       }
       const char *rest_param = NULL;
       int arity;
-      if (param_length >= 2 && strcmp(params.forms[param_length - 2].word, ".."))
+      if (param_length >= 2 && strcmp(params.forms[param_length - 2].word, "..") == 0)
       {
         rest_param = params.forms[param_length - 1].word;
         arity = param_length - 2;
@@ -704,8 +704,8 @@ form_t eval(form_t form, const Env_t *env)
     bindings[number_of_regular_params] =
         (Binding){
             .word = rest_param,
-            .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args)};
-  }
+            .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args - 1)};
+
   const form_t *bodies = func_macro->bodies;
   const int n_of_bodies = func_macro->n_of_bodies;
   form_t result;
