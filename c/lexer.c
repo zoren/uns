@@ -302,6 +302,20 @@ form_t bi_size(form_t a)
   return word_from_int(a.len);
 }
 
+form_t bi_log(form_t a)
+{
+  printf("wuns: ");
+  print_form(a);
+  printf("\n");
+  return unit;
+}
+
+form_t bi_abort()
+{
+  puts("wuns abort");
+  exit(1);
+}
+
 form_t bi_at(form_t a, form_t b)
 {
   // should we allow negative indexes? like in js?
@@ -371,6 +385,7 @@ typedef struct
   const bool variadic;
   union
   {
+    form_t (*func0)();
     form_t (*func1)(form_t);
     form_t (*func2)(form_t, form_t);
     form_t (*func3)(form_t, form_t, form_t);
@@ -385,12 +400,17 @@ bool streq(const char *a, const char *b)
 
 built_in_func_t get_builtin(const char *name)
 {
+  if (streq(name, "abort"))
+    return (built_in_func_t){.parameters = 0, .func0 = bi_abort};
+
   if (streq(name, "is-word"))
     return (built_in_func_t){.parameters = 1, .func1 = bi_is_word};
   if (streq(name, "is-list"))
     return (built_in_func_t){.parameters = 1, .func1 = bi_is_list};
   if (streq(name, "size"))
     return (built_in_func_t){.parameters = 1, .func1 = bi_size};
+  if (streq(name, "log"))
+    return (built_in_func_t){.parameters = 1, .func1 = bi_log};
 
   if (streq(name, "add"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_add};
@@ -657,6 +677,8 @@ form_t eval(form_t form, const Env_t *env)
     assert(builtin.parameters == number_of_given_args && "builtin arity mismatch");
     switch (number_of_given_args)
     {
+    case 0:
+      return builtin.func0();
     case 1:
       return builtin.func1(eval(forms[1], env));
     case 2:
