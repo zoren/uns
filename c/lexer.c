@@ -499,12 +499,8 @@ form_t eval(form_t form, const Env_t *env)
     while (cur_env != NULL)
     {
       for (int i = 0; i < cur_env->len; i++)
-      {
         if (streq(word, cur_env->bindings[i].word))
-        {
           return cur_env->bindings[i].form;
-        }
-      }
       cur_env = (Env_t *)cur_env->parent;
     }
     // to do proper error handling
@@ -618,14 +614,10 @@ form_t eval(form_t form, const Env_t *env)
       }
       const char **parameters = malloc(arity * sizeof(char *));
       for (int i = 0; i < arity; i++)
-      {
         parameters[i] = params.forms[i].word;
-      }
       form_t *bodies = malloc(sizeof(form_t) * (length - 3));
       for (int i = 3; i < length; i++)
-      {
         bodies[i - 3] = forms[i];
-      }
       FuncMacro func_macro = {
           .is_macro = is_macro,
           .arity = arity,
