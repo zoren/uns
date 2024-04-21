@@ -373,77 +373,44 @@ form_t bi_slice(form_t v, form_t i, form_t j)
 
 typedef struct
 {
-  const char *name;
-  form_t (*func)(form_t);
-} built_in_func1_t;
-
-const built_in_func1_t built_in_funcs1[] = {
-    {"is-word", bi_is_word},
-    {"is-list", bi_is_list},
-    {"size", bi_size},
-};
-
-typedef struct
-{
-  const char *name;
-  form_t (*func)(form_t, form_t);
-} built_in_func2_t;
-
-const built_in_func2_t built_in_funcs2[] = {
-    {"eq", eq},
-    {"add", add},
-    {"sub", sub},
-    {"lt", lt},
-    {"le", le},
-    {"ge", ge},
-    {"gt", gt},
-    {"at", at},
-};
-
-typedef struct
-{
-  const char *name;
-  form_t (*func)(form_t, form_t, form_t);
-} built_in_func3_t;
-
-const built_in_func3_t built_in_funcs3[] = {
-    {"slice", bi_slice},
-};
-
-form_t call_builtin(const char *name, const struct form *args, const int count)
-{
-  switch (count)
+  const int parameters;
+  union
   {
-  case 1:
-    for (unsigned long i = 0; i < sizeof(built_in_funcs1) / sizeof(built_in_funcs1[0]); i++)
-    {
-      if (strcmp(name, built_in_funcs1[i].name) == 0)
-      {
-        return built_in_funcs1[i].func(args[0]);
-      }
-    }
-    break;
-  case 2:
-    for (unsigned long i = 0; i < sizeof(built_in_funcs2) / sizeof(built_in_funcs2[0]); i++)
-    {
-      if (strcmp(name, built_in_funcs2[i].name) == 0)
-      {
-        return built_in_funcs2[i].func(args[0], args[1]);
-      }
-    }
-    break;
-  case 3:
-    for (unsigned long i = 0; i < sizeof(built_in_funcs3) / sizeof(built_in_funcs3[0]); i++)
-    {
-      if (strcmp(name, built_in_funcs3[i].name) == 0)
-      {
-        return built_in_funcs3[i].func(args[0], args[1], args[2]);
-      }
-    }
-    break;
-  }
-  printf("Error: unknown builtin function %s with arity %d\n", name, count);
-  exit(1);
+    form_t (*func1)(form_t);
+    form_t (*func2)(form_t, form_t);
+    form_t (*func3)(form_t, form_t, form_t);
+  };
+} built_in_func_t;
+
+built_in_func_t get_builtin(const char *name)
+{
+  if (strcmp(name, "is-word") == 0)
+    return (built_in_func_t){.parameters = 1, .func1 = bi_is_word};
+  if (strcmp(name, "is-list") == 0)
+    return (built_in_func_t){.parameters = 1, .func1 = bi_is_list};
+  if (strcmp(name, "size") == 0)
+    return (built_in_func_t){.parameters = 1, .func1 = bi_size};
+
+  if (strcmp(name, "eq") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = eq};
+  if (strcmp(name, "add") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = add};
+  if (strcmp(name, "sub") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = sub};
+  if (strcmp(name, "lt") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = lt};
+  if (strcmp(name, "le") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = le};
+  if (strcmp(name, "ge") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = ge};
+  if (strcmp(name, "gt") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = gt};
+  if (strcmp(name, "at") == 0)
+    return (built_in_func_t){.parameters = 2, .func2 = at};
+
+  if (strcmp(name, "slice") == 0)
+    return (built_in_func_t){.parameters = 3, .func3 = bi_slice};
+  return (built_in_func_t){.parameters = -1};
 }
 
 typedef struct
@@ -681,10 +648,21 @@ form_t eval(form_t form, const Env_t *env)
   const FuncMacro *func_macro = get_func_macro(first_word);
   if (func_macro == NULL)
   {
-    form_t *args = malloc(sizeof(form_t) * number_of_given_args);
-    for (int i = 1; i < length; i++)
-      args[i - 1] = eval(forms[i], env);
-    return call_builtin(first_word, args, number_of_given_args);
+    const built_in_func_t builtin = get_builtin(first_word);
+    assert(builtin.parameters >= 0 && "builtin not found");
+    assert(builtin.parameters == number_of_given_args && "builtin arity mismatch");
+    switch (number_of_given_args)
+    {
+    case 1:
+      return builtin.func1(eval(forms[1], env));
+    case 2:
+      return builtin.func2(eval(forms[1], env), eval(forms[2], env));
+    case 3:
+      return builtin.func3(eval(forms[1], env), eval(forms[2], env), eval(forms[3], env));
+    default:
+      printf("Error: unknown builtin function %s with arity %d\n", first_word, number_of_given_args);
+      exit(1);
+    }
   }
   const bool is_macro = func_macro->is_macro;
   const int number_of_regular_params = func_macro->arity;
