@@ -125,7 +125,7 @@
 
 [func lex [code-points]
   [let [s [size code-points]
-           tokens [mutable-list]]
+        tokens [mutable-list]]
     [loop [i [quote 0]]
       [if [ge i s]
         [freeze tokens]

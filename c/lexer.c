@@ -450,7 +450,7 @@ typedef struct
 typedef struct Env
 {
   const struct Env *parent;
-  const int len;
+  int len;
   const Binding *bindings;
 } Env_t;
 
@@ -556,7 +556,7 @@ form_t eval(form_t form, const Env_t *env)
   bool is_loop = streq(first_word, "loop");
   if (is_let || is_loop)
   {
-    assert(length >= 3 && "let/loop must have at least two arguments");
+    assert(length >= 2 && "let/loop must have at least two arguments");
     form_t binding_form = forms[1];
     assert(is_list(binding_form) && "let/loop and loop bindings must be a list");
     const int binding_length = binding_form.len;
@@ -564,12 +564,13 @@ form_t eval(form_t form, const Env_t *env)
     const form_t *binding_forms = binding_form.forms;
     const int number_of_bindings = binding_length / 2;
     Binding *bindings = number_of_bindings == 0 ? NULL : malloc(sizeof(Binding) * number_of_bindings);
-    const Env_t new_env = {.parent = env, .len = number_of_bindings, .bindings = bindings};
+    Env_t new_env = {.parent = env, .len = 0, .bindings = bindings};
     for (int i = 0; i < binding_length; i += 2)
     {
       assert(is_word(binding_forms[i]) && "let/loop bindings must be words");
-      bindings[i / 2].word = binding_forms[i].word;
-      bindings[i / 2].form = eval(binding_forms[i + 1], &new_env);
+      bindings[new_env.len].word = binding_forms[i].word;
+      bindings[new_env.len].form = eval(binding_forms[i + 1], &new_env);
+      new_env.len++;
     }
     if (is_let)
     {
