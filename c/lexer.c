@@ -351,7 +351,7 @@ form_t slice(int len, const form_t *forms, int start, int end)
   assert(start >= 0 && start < len && "slice start index out of bounds");
   assert(end >= 0 && end < len && "slice end index out of bounds");
   const int length = end - start;
-  if (length < 0)
+  if (length <= 0)
     return unit;
   form_t *slice_forms = malloc(sizeof(form_t) * length);
   for (int i = 0; i < length; i++)
