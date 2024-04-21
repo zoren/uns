@@ -376,40 +376,45 @@ typedef struct
   };
 } built_in_func_t;
 
+bool streq(const char *a, const char *b)
+{
+  return strcmp(a, b) == 0;
+}
+
 built_in_func_t get_builtin(const char *name)
 {
-  if (strcmp(name, "is-word") == 0)
+  if (streq(name, "is-word"))
     return (built_in_func_t){.parameters = 1, .func1 = bi_is_word};
-  if (strcmp(name, "is-list") == 0)
+  if (streq(name, "is-list"))
     return (built_in_func_t){.parameters = 1, .func1 = bi_is_list};
-  if (strcmp(name, "size") == 0)
+  if (streq(name, "size"))
     return (built_in_func_t){.parameters = 1, .func1 = bi_size};
 
-  if (strcmp(name, "add") == 0)
+  if (streq(name, "add"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_add};
-  if (strcmp(name, "sub") == 0)
+  if (streq(name, "sub"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_sub};
-  if (strcmp(name, "bit-and") == 0)
+  if (streq(name, "bit-and"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_bit_and};
-  if (strcmp(name, "bit-or") == 0)
+  if (streq(name, "bit-or"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_bit_or};
-  if (strcmp(name, "eq") == 0)
+  if (streq(name, "eq"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_eq};
-  if (strcmp(name, "lt") == 0)
+  if (streq(name, "lt"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_lt};
-  if (strcmp(name, "le") == 0)
+  if (streq(name, "le"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_le};
-  if (strcmp(name, "ge") == 0)
+  if (streq(name, "ge"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_ge};
-  if (strcmp(name, "gt") == 0)
+  if (streq(name, "gt"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_gt};
-  if (strcmp(name, "at") == 0)
+  if (streq(name, "at"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_at};
 
-  if (strcmp(name, "slice") == 0)
+  if (streq(name, "slice"))
     return (built_in_func_t){.parameters = 3, .func3 = bi_slice};
 
-  if (strcmp(name, "concat") == 0)
+  if (streq(name, "concat"))
     return (built_in_func_t){.parameters = 0, .variadic = true, .funcvar = bi_concat};
   return (built_in_func_t){.parameters = -1};
 }
@@ -480,7 +485,7 @@ const FuncMacro *get_func_macro(const char *name)
 {
   // search from the end to the beginning to get the latest definition
   for (int i = func_macro_env.len - 1; i >= 0; i--)
-    if (strcmp(name, func_macro_env.bindings[i].name) == 0)
+    if (streq(name, func_macro_env.bindings[i].name))
       return &func_macro_env.bindings[i].func_macro;
   return NULL;
 }
@@ -495,7 +500,7 @@ form_t eval(form_t form, const Env_t *env)
     {
       for (int i = 0; i < cur_env->len; i++)
       {
-        if (strcmp(word, cur_env->bindings[i].word) == 0)
+        if (streq(word, cur_env->bindings[i].word))
         {
           return cur_env->bindings[i].form;
         }
@@ -515,12 +520,12 @@ form_t eval(form_t form, const Env_t *env)
   const form_t first = forms[0];
   assert(is_word(first) && "first element a list must be a word");
   const char *first_word = first.word;
-  if (strcmp(first_word, "quote") == 0)
+  if (streq(first_word, "quote"))
   {
     assert(length == 2 && "quote takes exactly one argument");
     return forms[1];
   }
-  if (strcmp(first_word, "if") == 0)
+  if (streq(first_word, "if"))
   {
     assert(length == 4 && "if takes three arguments");
     const form_t cond = eval(forms[1], env);
@@ -529,8 +534,8 @@ form_t eval(form_t form, const Env_t *env)
              cond.word[0] == '0';
     return eval(forms[b ? 3 : 2], env);
   }
-  bool is_let = strcmp(first_word, "let") == 0;
-  bool is_loop = strcmp(first_word, "loop") == 0;
+  bool is_let = streq(first_word, "let");
+  bool is_loop = streq(first_word, "loop");
   if (is_let || is_loop)
   {
     assert(length >= 3 && "let/loop must have at least two arguments");
@@ -563,7 +568,7 @@ form_t eval(form_t form, const Env_t *env)
         result = eval(forms[i], &new_env);
       if (is_list(result) &&
           result.len > 0 &&
-          strcmp(result.forms[0].word, continueSpecialWord.word) == 0)
+          streq(result.forms[0].word, continueSpecialWord.word))
       {
         assert(result.len - 1 == number_of_bindings && "loop bindings mismatch");
         for (int i = 0; i < number_of_bindings; i++)
@@ -577,7 +582,7 @@ form_t eval(form_t form, const Env_t *env)
       return result;
     }
   }
-  if (strcmp(first_word, "cont") == 0)
+  if (streq(first_word, "cont"))
   {
     form_t *cont_args = malloc(sizeof(form_t) * (length));
     cont_args[0] = continueSpecialWord;
@@ -586,8 +591,8 @@ form_t eval(form_t form, const Env_t *env)
     return (form_t){.tag = form_list, .len = length, .forms = cont_args};
   }
   {
-    const bool is_func = strcmp(first_word, "func") == 0;
-    const bool is_macro = strcmp(first_word, "macro") == 0;
+    const bool is_func = streq(first_word, "func");
+    const bool is_macro = streq(first_word, "macro");
     if (is_func || is_macro)
     {
       assert(length >= 3 && "func/macro must have at least two arguments");
@@ -602,7 +607,7 @@ form_t eval(form_t form, const Env_t *env)
       }
       const char *rest_param = NULL;
       int arity;
-      if (param_length >= 2 && strcmp(params.forms[param_length - 2].word, "..") == 0)
+      if (param_length >= 2 && streq(params.forms[param_length - 2].word, ".."))
       {
         rest_param = params.forms[param_length - 1].word;
         arity = param_length - 2;
