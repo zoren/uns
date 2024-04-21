@@ -7,11 +7,11 @@
 
 typedef enum
 {
-  UNSET,
-  WORD,
+  UNSET = 1,
+  WORD = 'a',
   START_LIST = '[',
   END_LIST = ']',
-  WHITESPACE
+  WHITESPACE = ' ',
 } token_type;
 
 #define BUFSIZE (128 - 1)
@@ -19,75 +19,58 @@ typedef enum
 typedef struct
 {
   FILE *file;
-  char buf[BUFSIZE], *lim, *cur, *tok;
+  char buf[BUFSIZE + 1], *lim, *cur, *tok;
   token_type state;
   bool eof;
-  int byte_offset;
 } FileLexerState;
 
-token_type fill(FileLexerState *st)
+FileLexerState init_lexer(FILE *file)
 {
-  if (st->eof)
-  {
-    printf("fill EOF\n");
-    return 1;
-  }
-  const size_t shift = st->tok - st->buf;
-  const size_t used = st->lim - st->tok;
-  const size_t free = BUFSIZE - used;
+  FileLexerState st;
+  st.file = file;
+  st.cur = st.tok = st.lim = st.buf + BUFSIZE;
+  st.eof = false;
+  st.lim[0] = 0;
+  st.state = UNSET;
+  return st;
+}
 
-  // Error: no space. In real life can reallocate a larger buffer.
-  if (free < 1)
-  {
-    printf("Error: no space\n");
-    return 2;
-  }
+void fill(FileLexerState *st)
+{
+  const ssize_t shift = st->tok - st->buf;
+  const ssize_t used = st->lim - st->tok;
+  const ssize_t free = BUFSIZE - used;
+
+  assert(shift >= 1 && "fill: could not fill lexeme longer than buffer");
 
   memmove(st->buf, st->tok, used);
   st->lim -= shift;
   st->cur -= shift;
   st->tok -= shift;
-  st->byte_offset += shift;
 
   // Fill free space at the end of buffer with new data.
   const size_t read = fread(st->lim, 1, free, st->file);
-  if (read == 0)
-  {
-    st->eof = true;
-  }
+  st->eof = read < (size_t)free;
   st->lim += read;
   st->lim[0] = 0; // append sentinel symbol
-
-  return 0;
 }
 
 int peek_char(FileLexerState *st)
 {
-  if (st->cur >= st->lim)
-  {
-    const token_type t = fill(st);
-    if (t != 0)
-    {
-      return -1;
-    }
-    if (st->cur >= st->lim)
-    {
-      return -1;
-    }
-  }
-  return *st->cur;
+  if (st->lim <= st->cur && !st->eof)
+    fill(st);
+  if (st->lim <= st->cur)
+    return -1;
+  const char c = *st->cur;
+  assert(c != 0 && "peek_char: cur == 0");
+  return c;
 }
 
 void next_char(FileLexerState *st)
 {
-  if (st->cur >= st->lim)
-  {
-    const token_type t = fill(st);
-    if (t != 0)
-    {
-      return;
-    }
-  }
+  if (st->lim <= st->cur && !st->eof)
+    fill(st);
+  assert(st->cur < st->lim && "next_char: cur >= lim");
   st->cur++;
 }
 
@@ -148,14 +131,14 @@ next:
     goto next;
   case WORD:
   {
-    const char *word_start = st->cur;
+    st->tok = st->cur;
     do
     {
       next_char(st);
     } while (classify_char(peek_char(st)) == WORD);
-    const int len = st->cur - word_start;
+    const int len = st->cur - st->tok;
     char *word = malloc(len + 1);
-    memcpy(word, word_start, len);
+    memcpy(word, st->tok, len);
     word[len] = '\0';
     return (form_t){.tag = form_word, .len = len, .word = word};
   }
@@ -728,13 +711,7 @@ int main(int argc, char **argv)
     printf("Error: could not open file\n");
     exit(1);
   }
-  FileLexerState st;
-  st.file = file;
-  st.cur = st.tok = st.lim = st.buf + BUFSIZE;
-  st.eof = false;
-  st.lim[0] = 0;
-  st.state = UNSET;
-  st.byte_offset = 0;
+  FileLexerState st = init_lexer(file);
 
   int c;
   while ((c = peek_char(&st)) >= 0)
