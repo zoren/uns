@@ -696,11 +696,9 @@ form_t eval(form_t form, const Env_t *env)
   Binding *bindings = malloc(sizeof(Binding) * number_of_given_params);
   const Env_t new_env = {.parent = env, .len = number_of_regular_params, .bindings = bindings};
   for (int i = 0; i < number_of_regular_params; i++)
-  {
     bindings[i] = (Binding){.word = parameters[i], .form = args[i]};
-  }
+
   if (rest_param != NULL)
-  {
     bindings[number_of_regular_params] =
         (Binding){
             .word = rest_param,
@@ -710,13 +708,11 @@ form_t eval(form_t form, const Env_t *env)
   const int n_of_bodies = func_macro->n_of_bodies;
   form_t result;
   for (int i = 0; i < n_of_bodies; i++)
-  {
     result = eval(bodies[i], &new_env);
-  }
+
   if (is_macro)
-  {
     result = eval(result, env);
-  }
+
   return result;
 }
 
