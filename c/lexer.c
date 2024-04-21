@@ -272,13 +272,6 @@ bool is_list(form_t a)
   return a.tag == form_list;
 }
 
-bool isDecimalWord(form_t word)
-{
-  if (!is_word(word))
-    return false;
-  return word.len == (ssize_t)strspn(word.word, "0123456789");
-}
-
 form_t bi_eq(form_t a, form_t b)
 {
   assert(is_word(a) && is_word(b) && "eq requires words");
@@ -287,7 +280,6 @@ form_t bi_eq(form_t a, form_t b)
 
 int word_to_int(form_t a)
 {
-  assert(isDecimalWord(a) && "word_to_int requires a decimal word");
   char *endptr;
   long int a_val = strtol(a.word, &endptr, 10);
   assert(*endptr == '\0' && "word_to_int requires a decimal word");
@@ -298,7 +290,6 @@ int word_to_int(form_t a)
 #define BUILTIN_TWO_DECIMAL_OP(name, op)                                             \
   form_t name(form_t a, form_t b)                                                    \
   {                                                                                  \
-    assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
     const int r = word_to_int(a) op word_to_int(b);                                  \
     return word_from_int(r);                                                         \
   }
@@ -309,7 +300,6 @@ BUILTIN_TWO_DECIMAL_OP(bi_sub, -)
 #define BUILTIN_TWO_DECIMAL_CMP(name, op)                                            \
   form_t name(form_t a, form_t b)                                                    \
   {                                                                                  \
-    assert(isDecimalWord(a) && isDecimalWord(b) && #name " requires decimal words"); \
     return word_to_int(a) op word_to_int(b) ? one : zero;                            \
   }
 
@@ -338,7 +328,6 @@ form_t bi_at(form_t a, form_t b)
   // should we allow negative indexes? like in js?
   // indexing words?
   assert(is_list(a) && "at requires a list");
-  assert(isDecimalWord(b) && "at requires a decimal word");
   const int index = word_to_int(b);
   assert(index >= 0 && index < a.len && "at index out of bounds");
   return a.forms[index];
@@ -346,10 +335,22 @@ form_t bi_at(form_t a, form_t b)
 
 form_t slice(int len, const form_t *forms, int start, int end)
 {
-  // todo, do it like in js https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
+  // do it like in js https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
   // as ousterhout says as well don't throw errors, just return empty list
-  assert(start >= 0 && start < len && "slice start index out of bounds");
-  assert(end >= 0 && end < len && "slice end index out of bounds");
+  if (start >= len)
+    return unit;
+  if (start < -len)
+    start = 0;
+  else if (start < 0)
+    start = len + start;
+
+  if (end == 0 || end < -len)
+    return unit;
+  if (end >= len)
+    end = len - 1;
+  else if (end < 0)
+    end = len + end;
+
   const int length = end - start;
   if (length <= 0)
     return unit;
@@ -364,8 +365,6 @@ form_t slice(int len, const form_t *forms, int start, int end)
 form_t bi_slice(form_t v, form_t i, form_t j)
 {
   assert(is_list(v) && "slice requires a list");
-  assert(isDecimalWord(i) && "slice requires a decimal word");
-  assert(isDecimalWord(j) && "slice requires a decimal word");
   const int start = word_to_int(i);
   const int end = word_to_int(j);
   return slice(v.len, v.forms, start, end);
@@ -702,7 +701,7 @@ form_t eval(form_t form, const Env_t *env)
     bindings[number_of_regular_params] =
         (Binding){
             .word = rest_param,
-            .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args - 1)};
+            .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args)};
 
   const form_t *bodies = func_macro->bodies;
   const int n_of_bodies = func_macro->n_of_bodies;

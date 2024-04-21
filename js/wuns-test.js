@@ -160,6 +160,7 @@ const tests = `
 
 [func f []]
 [f] [.= []]
+[slice [quote [1 2 3]] [quote 0] [quote -1]] [.= [1 2]]
 `
 {
   const funcEnv = mkFuncEnv()
