@@ -539,6 +539,7 @@ form_t eval(form_t form, const Env_t *env)
       }
       cur_env = (Env_t *)cur_env->parent;
     }
+    // to do proper error handling
     printf("Error: word not found in env %s\n", word);
     exit(1);
   }
@@ -571,38 +572,42 @@ form_t eval(form_t form, const Env_t *env)
   {
     assert(length >= 3 && "let/loop must have at least two arguments");
     form_t binding_form = forms[1];
-    assert(binding_form.tag == form_list && "lelet/loopt and loop bindings must be a list");
+    assert(is_list(binding_form) && "let/loop and loop bindings must be a list");
     const int binding_length = binding_form.len;
     assert(binding_length % 2 == 0 && "let/loop bindings must be a list of even length");
     const form_t *binding_forms = binding_form.forms;
-    Binding *bindings = malloc(sizeof(Binding) * binding_length / 2);
-    const Env_t new_env = {.parent = env, .len = binding_length / 2, .bindings = bindings};
+    const int number_of_bindings = binding_length / 2;
+    Binding *bindings = number_of_bindings == 0 ? NULL : malloc(sizeof(Binding) * number_of_bindings);
+    const Env_t new_env = {.parent = env, .len = number_of_bindings, .bindings = bindings};
     for (int i = 0; i < binding_length; i += 2)
     {
-      assert(binding_forms[i].tag == form_word && "let/loop bindings must be words");
-      bindings->word = binding_forms[i].word;
-      bindings->form = eval(binding_forms[i + 1], &new_env);
-      bindings++;
+      assert(is_word(binding_forms[i]) && "let/loop bindings must be words");
+      bindings[i / 2].word = binding_forms[i].word;
+      bindings[i / 2].form = eval(binding_forms[i + 1], &new_env);
     }
     if (is_let)
     {
-      for (int i = 2; i < length - 1; i++)
-        eval(forms[i], &new_env);
-      const form_t result = eval(forms[length - 1], &new_env);
+      form_t result = unit;
+      for (int i = 2; i < length; i++)
+        result = eval(forms[i], &new_env);
       free(bindings);
       return result;
     }
     while (true)
     {
-      for (int i = 2; i < length - 1; i++)
-        eval(forms[i], &new_env);
-      const form_t result = eval(forms[length - 1], &new_env);
-      if (result.tag == form_list &&
+      form_t result = unit;
+      for (int i = 2; i < length; i++)
+        result = eval(forms[i], &new_env);
+      if (is_list(result) &&
           result.len > 0 &&
-          &result.forms[0] == &continueSpecialWord)
+          strcmp(result.forms[0].word, continueSpecialWord.word) == 0)
       {
-        for (int i = 1; i < result.len; i++)
-          bindings[i - 1].form = result.forms[i];
+        assert(result.len - 1 == number_of_bindings && "loop bindings mismatch");
+        for (int i = 0; i < number_of_bindings; i++)
+        {
+          const form_t v = result.forms[i + 1];
+          bindings[i].form = v;
+        }
         continue;
       }
       free(bindings);
