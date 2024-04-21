@@ -355,6 +355,8 @@ form_t bi_concat(size_t n, form_t *forms)
     assert(is_list(forms[i]) && "concat requires lists");
     total_length += forms[i].len;
   }
+  if (total_length == 0)
+    return unit;
   form_t *concat_forms = malloc(sizeof(form_t) * total_length);
   int k = 0;
   for (size_t i = 0; i < n; i++)
@@ -705,7 +707,7 @@ form_t eval(form_t form, const Env_t *env)
         (Binding){
             .word = rest_param,
             .form = slice(number_of_given_args, args, number_of_regular_params, number_of_given_args)};
-
+  free(args);
   const form_t *bodies = func_macro->bodies;
   const int n_of_bodies = func_macro->n_of_bodies;
   form_t result;
