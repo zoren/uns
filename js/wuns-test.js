@@ -154,6 +154,12 @@ const tests = `
 [macro if-not [cond then else]
   [list [quote if] cond else then]]
 [if-not [quote 0] [quote t] [quote f]] [.= t]
+
+[let []] [.= []]
+[loop []] [.= []]
+
+[func f []]
+[f] [.= []]
 `
 {
   const funcEnv = mkFuncEnv()
@@ -192,7 +198,8 @@ const forms = parseAll(selfWuns)
 
 for (const form of forms) {
   if (form === null) break
-  gogoeval(form)
+  const res = gogoeval(form)
+  print(res)
 }
 
 const stringToWunsList = (s) => {

@@ -78,9 +78,8 @@ export const makeEvaluator = (funcEnv) => {
     for (let i = 0; i < params.length; i++) varValues.set(params[i], args[i])
     if (restParam) varValues.set(restParam, makeList(...args.slice(params.length)))
     const inner = { varValues, outer: null }
-    let result = null
+    let result = unit
     for (const body of bodies) result = wunsEval(body, inner)
-    assert(result !== null, `function ${f} did not return a value`)
     return result
   }
   const wunsEval = (form, env) => {
@@ -107,7 +106,7 @@ export const makeEvaluator = (funcEnv) => {
         const inner = { varValues, outer: env }
         for (let i = 0; i < bindings.length - 1; i += 2)
           varValues.set(bindings[i], wunsEval(bindings[i + 1], inner))
-        let result = null
+        let result = unit
         if (firstWord === 'let') {
           for (const body of bodies) result = wunsEval(body, inner)
           return result
