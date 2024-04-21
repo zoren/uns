@@ -111,8 +111,8 @@ const mkFuncEnv = () => {
   funcEnv.set('gensym', () => String(gensym++))
   funcEnv.set('log', (a) => console.log(print(a)) || a)
 
-  funcEnv.set('abort', (w) => {
-    throw new Error(print(w))
+  funcEnv.set('abort', () => {
+    throw new Error("wuns 'abort'")
   })
 
   return funcEnv

@@ -57,7 +57,7 @@
     [ifs
       [eq s [quote 0]]
       [quote 1]
-      
+
       [eq s [quote 1]]
       [first clauses]
 
@@ -119,7 +119,9 @@
               [cont [inc j]]
               [list [quote ident] tok-start j]]]
 
-          [abort [quote unexpected-character]]]]]]]
+          [do
+            [log [quote [unexpected character]]]
+            [abort]]]]]]]
 
 [func lex [code-points]
   [let [s [size code-points]
@@ -140,8 +142,7 @@
                 [cont end]]]]]]]]
 
 [func parse1 [tokens i]
-  [when [ge i [size tokens]]
-    [abort [quote unexpected-end-of-input]]]
+  [assert [lt i [size tokens]] unexpected end of input]
   [let [token [at tokens i]
         start-bracket [word [quote [91]]]
         end-bracket [word [quote [93]]]
@@ -214,21 +215,18 @@
         [let [first-word [first form]
               args [slice form [quote 1] s]
               n-of-args [size args]]
-          [when-not [is-word first-word]
-            [abort [quote non-symbol-first-in-form]]]
+          [assert [is-word first-word] non symbol first in form]
           [ifs
             [eq first-word [quote quote]]
             [do
               [log [quote quoteeling]]
-              [when-not [eq n-of-args [quote 1]]
-                [abort [quote quote-requires-one-arg]]]
+              [assert [eq n-of-args [quote 1]] quote requires one arg]
               [comment check if arg is a word and if it is decimal integer]
               []]
 
             [eq first-word [quote if]]
             [do
-              [when-not [eq n-of-args [quote 3]]
-                [abort [quote if-requires-three-args]]]
+              [assert [eq n-of-args [quote 3]] if requires three args]
               [let [cond [analyse ctx [first args]]
                     then [analyse ctx [second args]]
                     else [analyse ctx [third args]]]
@@ -237,17 +235,12 @@
 
             [eq first-word [quote let]]
             [do
-              [when [lt n-of-args [quote 2]]
-                [abort [quote let-requires-at-least-two-args]]]
+              [assert [ge n-of-args [quote 2]] let requires at least two args]
               [let [bindings [first args]
                     bodies [slice args [quote 1] n-of-args]]
-                [when-not [is-list bindings]
-                  [abort [quote let-requires-a-list-of-bindings]]]
+                [assert [is-list bindings] let requires a list of bindings]
                 [let [n-of-bindings [size bindings]]
-                  [when-not [is-even n-of-bindings]
-                    [abort [quote let-requires-an-even-number-of-bindings]]]]
-
-
+                  [assert [is-even n-of-bindings] let requires an even number of bindings]]
               ]
               ]
 
