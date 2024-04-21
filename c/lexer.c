@@ -663,7 +663,7 @@ form_t eval(form_t form, const Env_t *env)
   }
 
   // eval args if func
-  form_t *args = malloc(sizeof(form_t) * (length - 1));
+  form_t *args = malloc(sizeof(form_t) * number_of_given_args);
   if (is_macro)
   {
     for (int i = 1; i < length; i++)
@@ -676,7 +676,7 @@ form_t eval(form_t form, const Env_t *env)
   }
 
   Binding *bindings = malloc(sizeof(Binding) * number_of_given_params);
-  const Env_t new_env = {.parent = env, .len = number_of_regular_params, .bindings = bindings};
+  const Env_t new_env = {.parent = env, .len = number_of_given_params, .bindings = bindings};
   for (int i = 0; i < number_of_regular_params; i++)
     bindings[i] = (Binding){.word = parameters[i], .form = args[i]};
 
