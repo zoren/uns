@@ -349,14 +349,36 @@ form_t bi_slice(form_t v, form_t i, form_t j)
   return slice(v.len, v.forms, start, end);
 }
 
+form_t bi_concat(size_t n, form_t *forms)
+{
+  ssize_t total_length = 0;
+  for (size_t i = 0; i < n; i++)
+  {
+    assert(is_list(forms[i]) && "concat requires lists");
+    total_length += forms[i].len;
+  }
+  form_t *concat_forms = malloc(sizeof(form_t) * total_length);
+  int k = 0;
+  for (size_t i = 0; i < n; i++)
+  {
+    for (int j = 0; j < forms[i].len; j++)
+    {
+      concat_forms[k++] = forms[i].forms[j];
+    }
+  }
+  return (form_t){.tag = form_list, .len = total_length, .forms = concat_forms};
+}
+
 typedef struct
 {
   const int parameters;
+  const bool variadic;
   union
   {
     form_t (*func1)(form_t);
     form_t (*func2)(form_t, form_t);
     form_t (*func3)(form_t, form_t, form_t);
+    form_t (*funcvar)(size_t, form_t *);
   };
 } built_in_func_t;
 
@@ -392,6 +414,9 @@ built_in_func_t get_builtin(const char *name)
 
   if (strcmp(name, "slice") == 0)
     return (built_in_func_t){.parameters = 3, .func3 = bi_slice};
+
+  if (strcmp(name, "concat") == 0)
+    return (built_in_func_t){.parameters = 0, .variadic = true, .funcvar = bi_concat};
   return (built_in_func_t){.parameters = -1};
 }
 
@@ -632,6 +657,15 @@ form_t eval(form_t form, const Env_t *env)
   {
     const built_in_func_t builtin = get_builtin(first_word);
     assert(builtin.parameters >= 0 && "builtin not found");
+    if (builtin.variadic)
+    {
+      form_t *args = malloc(sizeof(form_t) * number_of_given_args);
+      for (int i = 1; i < length; i++)
+        args[i - 1] = eval(forms[i], env);
+      const form_t res = builtin.funcvar(number_of_given_args, args);
+      free(args);
+      return res;
+    }
     assert(builtin.parameters == number_of_given_args && "builtin arity mismatch");
     switch (number_of_given_args)
     {

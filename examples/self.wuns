@@ -32,6 +32,10 @@
     [concat [quote [do]] forms]
     []]]
 
+[when [eq [quote 1] [quote 1]]
+  [quote 1]
+  [quote 2]]
+
 [macro when-not [cond .. forms]
   [list
     [quote if] cond
@@ -267,3 +271,11 @@
   [analyse [] [quote [[]]]]
 
   ]
+
+[func var-arg-test [f .. args]
+  args]
+[var-arg-test [quote abc] [quote b] [quote c] [quote d] [quote e]]
+
+[when [eq [quote abc] [quote abc]]
+  [quote abc]
+  [quote res]]
