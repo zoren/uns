@@ -75,11 +75,9 @@ const mkFuncEnv = () => {
   funcEnv.set('size', (a) => String(Number(a.length)))
   funcEnv.set('at', (v, i) => {
     const ni = Number(i)
-    if (ni < 0 || ni >= v.length) {
-      console.log('at error', ni, v.length, i, v)
-      throw new Error('index out of bounds: ' + i)
-    }
-    return v[ni]
+    assert(ni >= -v.length && ni < v.length, 'index out of bounds: ' + i)
+    if (typeof v === 'string') return String(v.at(ni).charCodeAt(0))
+    return v.at(ni)
   })
   funcEnv.set('slice', (v, i, j) => Object.freeze(v.slice(Number(i), Number(j))))
   // would be nice to do without these two, as we would prefer no builtin var args
