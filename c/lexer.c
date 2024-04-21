@@ -279,7 +279,7 @@ bool isDecimalWord(form_t word)
   return word.len == (ssize_t)strspn(word.word, "0123456789");
 }
 
-form_t eq(form_t a, form_t b)
+form_t bi_eq(form_t a, form_t b)
 {
   assert(is_word(a) && is_word(b) && "eq requires words");
   return a.len == b.len && memcmp(a.word, b.word, a.len) == 0 ? one : zero;
@@ -303,8 +303,8 @@ int word_to_int(form_t a)
     return word_from_int(r);                                                         \
   }
 
-BUILTIN_TWO_DECIMAL_OP(add, +)
-BUILTIN_TWO_DECIMAL_OP(sub, -)
+BUILTIN_TWO_DECIMAL_OP(bi_add, +)
+BUILTIN_TWO_DECIMAL_OP(bi_sub, -)
 
 #define BUILTIN_TWO_DECIMAL_CMP(name, op)                                            \
   form_t name(form_t a, form_t b)                                                    \
@@ -313,10 +313,10 @@ BUILTIN_TWO_DECIMAL_OP(sub, -)
     return word_to_int(a) op word_to_int(b) ? one : zero;                            \
   }
 
-BUILTIN_TWO_DECIMAL_CMP(lt, <)
-BUILTIN_TWO_DECIMAL_CMP(le, <=)
-BUILTIN_TWO_DECIMAL_CMP(ge, >=)
-BUILTIN_TWO_DECIMAL_CMP(gt, >)
+BUILTIN_TWO_DECIMAL_CMP(bi_lt, <)
+BUILTIN_TWO_DECIMAL_CMP(bi_le, <=)
+BUILTIN_TWO_DECIMAL_CMP(bi_ge, >=)
+BUILTIN_TWO_DECIMAL_CMP(bi_gt, >)
 
 form_t bi_is_word(form_t a)
 {
@@ -333,7 +333,7 @@ form_t bi_size(form_t a)
   return word_from_int(a.len);
 }
 
-form_t at(form_t a, form_t b)
+form_t bi_at(form_t a, form_t b)
 {
   // should we allow negative indexes? like in js?
   // indexing words?
@@ -392,21 +392,21 @@ built_in_func_t get_builtin(const char *name)
     return (built_in_func_t){.parameters = 1, .func1 = bi_size};
 
   if (strcmp(name, "eq") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = eq};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_eq};
   if (strcmp(name, "add") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = add};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_add};
   if (strcmp(name, "sub") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = sub};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_sub};
   if (strcmp(name, "lt") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = lt};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_lt};
   if (strcmp(name, "le") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = le};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_le};
   if (strcmp(name, "ge") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = ge};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_ge};
   if (strcmp(name, "gt") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = gt};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_gt};
   if (strcmp(name, "at") == 0)
-    return (built_in_func_t){.parameters = 2, .func2 = at};
+    return (built_in_func_t){.parameters = 2, .func2 = bi_at};
 
   if (strcmp(name, "slice") == 0)
     return (built_in_func_t){.parameters = 3, .func3 = bi_slice};
