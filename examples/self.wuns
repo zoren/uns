@@ -4,9 +4,7 @@
 
 [func dec [x] [sub x [quote 1]]]
 
-[func eqz [x] [eq x [quote 0]]]
-
-[func not [c] [eqz c]]
+[func not [c] [eq c [quote 0]]]
 
 [func is-odd [x] [bit-and x [quote 1]]]
 

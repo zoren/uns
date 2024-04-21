@@ -335,9 +335,7 @@ form_t slice(int len, const form_t *forms, int start, int end)
     return unit;
   form_t *slice_forms = malloc(sizeof(form_t) * length);
   for (int i = 0; i < length; i++)
-  {
     slice_forms[i] = forms[start + i];
-  }
   return (form_t){.tag = form_list, .len = length, .forms = slice_forms};
 }
 
@@ -360,12 +358,8 @@ form_t bi_concat(size_t n, form_t *forms)
   form_t *concat_forms = malloc(sizeof(form_t) * total_length);
   int k = 0;
   for (size_t i = 0; i < n; i++)
-  {
     for (int j = 0; j < forms[i].len; j++)
-    {
       concat_forms[k++] = forms[i].forms[j];
-    }
-  }
   return (form_t){.tag = form_list, .len = total_length, .forms = concat_forms};
 }
 
@@ -486,12 +480,8 @@ const FuncMacro *get_func_macro(const char *name)
 {
   // search from the end to the beginning to get the latest definition
   for (int i = func_macro_env.len - 1; i >= 0; i--)
-  {
     if (strcmp(name, func_macro_env.bindings[i].name) == 0)
-    {
       return &func_macro_env.bindings[i].func_macro;
-    }
-  }
   return NULL;
 }
 
