@@ -287,20 +287,20 @@ int word_to_int(form_t a)
   return a_val;
 }
 
-#define BUILTIN_TWO_DECIMAL_OP(name, op)                                             \
-  form_t name(form_t a, form_t b)                                                    \
-  {                                                                                  \
-    const int r = word_to_int(a) op word_to_int(b);                                  \
-    return word_from_int(r);                                                         \
+#define BUILTIN_TWO_DECIMAL_OP(name, op)            \
+  form_t name(form_t a, form_t b)                   \
+  {                                                 \
+    const int r = word_to_int(a) op word_to_int(b); \
+    return word_from_int(r);                        \
   }
 
 BUILTIN_TWO_DECIMAL_OP(bi_add, +)
 BUILTIN_TWO_DECIMAL_OP(bi_sub, -)
 
-#define BUILTIN_TWO_DECIMAL_CMP(name, op)                                            \
-  form_t name(form_t a, form_t b)                                                    \
-  {                                                                                  \
-    return word_to_int(a) op word_to_int(b) ? one : zero;                            \
+#define BUILTIN_TWO_DECIMAL_CMP(name, op)                 \
+  form_t name(form_t a, form_t b)                         \
+  {                                                       \
+    return word_to_int(a) op word_to_int(b) ? one : zero; \
   }
 
 BUILTIN_TWO_DECIMAL_CMP(bi_lt, <)
