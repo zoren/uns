@@ -325,8 +325,8 @@ form_t slice(int len, const form_t *forms, int start, int end)
 
   if (end == 0 || end < -len)
     return unit;
-  if (end >= len)
-    end = len - 1;
+  if (end > len)
+    end = len;
   else if (end < 0)
     end = len + end;
 
