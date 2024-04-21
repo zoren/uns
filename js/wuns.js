@@ -115,7 +115,8 @@ export const makeEvaluator = (funcEnv) => {
         while (true) {
           for (const body of bodies) result = wunsEval(body, inner)
           if (!result[symbolContinue]) return result
-          for (let i = 0; i < result.length; i++) varValues.set(bindings[i * 2], result[i])
+          for (let i = 0; i < Math.min(result.length, varValues.size); i++)
+            varValues.set(bindings[i * 2], result[i])
         }
       }
       case 'cont': {
