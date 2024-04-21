@@ -145,8 +145,7 @@ next:
   case START_LIST:
   {
     next_char(st);
-    // todo make them growable, and trim to size on return
-    form_t *forms = malloc(sizeof(form_t) * 10);
+    form_t *forms = NULL;
     int len = 0;
     while (1)
     {
@@ -167,12 +166,7 @@ next:
         next_char(st);
         continue;
       }
-
-      if (len == 10)
-      {
-        printf("Error: list too long\n");
-        exit(1);
-      }
+      forms = realloc(forms, sizeof(form_t) * (len + 1));
       forms[len++] = parse(st);
     }
     return (form_t){.tag = form_list, .len = len, .forms = forms};
