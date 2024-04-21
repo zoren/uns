@@ -477,7 +477,6 @@ FuncMacroEnv func_macro_env = {
 void insert_func_macro_binding(FuncMacroBinding b)
 {
   FuncMacroBinding *new_bindings = realloc(func_macro_env.bindings, sizeof(FuncMacroBinding) * (func_macro_env.len + 1));
-  // const FuncMacroBinding b = (FuncMacroBinding){.name = name, .func_macro = func_macro};
   memcpy(&new_bindings[func_macro_env.len], &b, sizeof(FuncMacroBinding));
   func_macro_env.len++;
   func_macro_env.bindings = new_bindings;

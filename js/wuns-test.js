@@ -97,7 +97,6 @@ const mkFuncEnv = () => {
   funcEnv.set('freeze', (ar) => Object.freeze(ar))
 
   funcEnv.set('word', (cs) => {
-    // assert(is)
     assert(Array.isArray(cs), 'word expects array: ' + cs)
     // assert(cs.length > 0, 'word expects non-empty array')
     return cs
