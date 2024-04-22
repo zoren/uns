@@ -55,7 +55,7 @@
 [macro and [.. clauses]
   [let [s [size clauses]]
     [ifs
-      [eq s [quote 0]]
+      [is-zero s]
       [quote 1]
 
       [eq s [quote 1]]
@@ -70,7 +70,7 @@
 [macro or [.. clauses]
   [let [s [size clauses]]
     [ifs
-      [eq s [quote 0]]
+      [is-zero s]
       [quote 0]
 
       [eq s [quote 1]]
@@ -115,7 +115,7 @@
 
           [is-ident-char c]
           [loop [j [inc i]]
-            [if [if [lt j end] [is-ident-char [at code-points j]] [quote 0]]
+            [if [and [lt j end] [is-ident-char [at code-points j]]]
               [cont [inc j]]
               [list [quote ident] tok-start j]]]
 
@@ -141,23 +141,24 @@
                       c]]
                 [cont end]]]]]]]]
 
+[func is-single-char [word c]
+  [and [eq [size word] [quote 1]] [eq [first word] c]]]
+
 [func parse1 [tokens i]
   [assert [lt i [size tokens]] unexpected end of input]
   [let [token [at tokens i]
-        start-bracket [word [quote [91]]]
-        end-bracket [word [quote [93]]]
         s-toks [size tokens]]
-    [if-not [eq token start-bracket]
+    [if-not [is-single-char token [quote 91]]
       [list token [inc i]]
       [let
         [ls [mutable-list]
-         new-j
+          new-j
           [loop [j [inc i]]
             [ifs
               [ge j s-toks]
               j
 
-              [eq [at tokens j] end-bracket]
+              [is-single-char [at tokens j] [quote 93]]
               [inc j]
 
               [let [res [parse1 tokens j]]
@@ -185,7 +186,7 @@
     [let [s [size f]]
       [concat-words
         [word [quote [91]]]
-        [if [eq s [quote 0]]
+        [if [is-zero s]
           [word []]
           [loop [i [quote 0]
                  res []]
