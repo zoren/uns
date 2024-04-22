@@ -318,12 +318,14 @@ form_t bi_abort()
 
 form_t bi_at(form_t a, form_t b)
 {
-  // should we allow negative indexes? like in js?
-  // indexing words?
-  assert(is_list(a) && "at requires a list");
-  const int index = word_to_int(b);
-  assert(index >= 0 && index < a.len && "at index out of bounds");
-  return a.forms[index];
+  int index = word_to_int(b);
+  assert(index >= -a.len && index < a.len && "at index out of bounds");
+  if (index < 0)
+    index += a.len;
+  if (is_list(a))
+    return a.forms[index];
+  assert(is_word(a) && "at requires a list or a word");
+  return word_from_int(a.word[index]);
 }
 
 form_t slice(int len, const form_t *forms, int start, int end)
