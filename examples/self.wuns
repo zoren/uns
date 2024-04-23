@@ -93,7 +93,7 @@
         [loop [i [quote 0]]
           [if [ge i s]
             [quote 1]
-            [and [eq [at a i] [at b i]] [cont [inc i]]]]]]
+            [and [= [at a i] [at b i]] [cont [inc i]]]]]]
 
     [quote 0]]]
 
