@@ -411,55 +411,46 @@ form_t bi_gensym()
   return (form_t){.tag = form_word, .len = strlen(result), .word = result};
 }
 
+typedef struct {
+  const char *name;
+  built_in_func_t func;
+} built_in_func_entry_t;
+
+static const built_in_func_entry_t built_in_funcs[] = {
+  {"abort", {.parameters = 0, .func0 = bi_abort}},
+  {"gensym", {.parameters = 0, .func0 = bi_gensym}},
+
+  {"is-word", {.parameters = 1, .func1 = bi_is_word}},
+  {"is-list", {.parameters = 1, .func1 = bi_is_list}},
+  {"size", {.parameters = 1, .func1 = bi_size}},
+  {"log", {.parameters = 1, .func1 = bi_log}},
+
+  {"add", {.parameters = 2, .func2 = bi_add}},
+  {"sub", {.parameters = 2, .func2 = bi_sub}},
+  {"bit-and", {.parameters = 2, .func2 = bi_bit_and}},
+  {"bit-or", {.parameters = 2, .func2 = bi_bit_or}},
+  {"bit-xor", {.parameters = 2, .func2 = bi_bit_xor}},
+  {"bit-shift-left", {.parameters = 2, .func2 = bi_bit_shift_left}},
+  {"bit-shift-right-signed", {.parameters = 2, .func2 = bi_bit_shift_right}},
+
+  {"eq", {.parameters = 2, .func2 = bi_eq}},
+  {"lt", {.parameters = 2, .func2 = bi_lt}},
+  {"le", {.parameters = 2, .func2 = bi_le}},
+  {"ge", {.parameters = 2, .func2 = bi_ge}},
+  {"gt", {.parameters = 2, .func2 = bi_gt}},
+
+  {"at", {.parameters = 2, .func2 = bi_at}},
+
+  {"slice", {.parameters = 3, .func3 = bi_slice}},
+
+  {"concat", {.parameters = 0, .variadic = true, .funcvar = bi_concat}},
+};
+
 built_in_func_t get_builtin(const char *name)
 {
-  if (streq(name, "abort"))
-    return (built_in_func_t){.parameters = 0, .func0 = bi_abort};
-  if (streq(name, "gensym"))
-    return (built_in_func_t){.parameters = 0, .func0 = bi_gensym};
-
-  if (streq(name, "is-word"))
-    return (built_in_func_t){.parameters = 1, .func1 = bi_is_word};
-  if (streq(name, "is-list"))
-    return (built_in_func_t){.parameters = 1, .func1 = bi_is_list};
-  if (streq(name, "size"))
-    return (built_in_func_t){.parameters = 1, .func1 = bi_size};
-  if (streq(name, "log"))
-    return (built_in_func_t){.parameters = 1, .func1 = bi_log};
-
-  if (streq(name, "add"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_add};
-  if (streq(name, "sub"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_sub};
-  if (streq(name, "bit-and"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_and};
-  if (streq(name, "bit-or"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_or};
-  if (streq(name, "bit-xor"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_xor};
-  if (streq(name, "bit-shift-left"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_shift_left};
-  if (streq(name, "bit-shift-right-signed"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_shift_right};
-
-  if (streq(name, "eq"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_eq};
-  if (streq(name, "lt"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_lt};
-  if (streq(name, "le"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_le};
-  if (streq(name, "ge"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_ge};
-  if (streq(name, "gt"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_gt};
-  if (streq(name, "at"))
-    return (built_in_func_t){.parameters = 2, .func2 = bi_at};
-
-  if (streq(name, "slice"))
-    return (built_in_func_t){.parameters = 3, .func3 = bi_slice};
-
-  if (streq(name, "concat"))
-    return (built_in_func_t){.parameters = 0, .variadic = true, .funcvar = bi_concat};
+  for (size_t i = 0; i < sizeof(built_in_funcs) / sizeof(built_in_func_entry_t); i++)
+    if (streq(name, built_in_funcs[i].name))
+      return built_in_funcs[i].func;
   return (built_in_func_t){.parameters = -1};
 }
 
