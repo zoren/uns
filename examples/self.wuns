@@ -83,19 +83,16 @@
             [concat [quote [or]] [rest clauses]]]]]]]]
 
 [func = [a b]
-  [ifs
-    [and [is-word a] [is-word b]]]
+  [if
+    [and [is-word a] [is-word b]]
     [eq a b]
 
-    [and [is-list a] [is-list b]]
-    [let [s [size a]]
-      [and [eq s [size b]]
-        [loop [i [quote 0]]
-          [if [ge i s]
-            [quote 1]
-            [and [= [at a i] [at b i]] [cont [inc i]]]]]]
-
-    [quote 0]]]
+    [and [is-list a] [is-list b]
+      [let [s [size a]]
+        [and [eq s [size b]]
+          [loop [i [quote 0]]
+            [or [ge i s]
+              [and [= [at a i] [at b i]] [cont [inc i]]]]]]]]]]
 
 [func is-whitespace [c]
   [or [eq c [quote 32]] [eq c [quote 10]]]]
@@ -367,15 +364,18 @@
 
 
 [comment this is wrong
-[map-to-hex [u32-word-to-leb-128 [quote 624485]]]
+  [map-to-hex [u32-word-to-leb-128 [quote 624485]]]]
 
-]
-
-[map-to-hex [s32-word-to-leb-128 [quote -123456]]]
 
 [comment
   [loop [i [quote 0]]
-  [when [lt i [quote 32]]
-    [log [list i [dec-word-to-hex-word i]]]
-    [cont [inc i]]]]
+    [when [lt i [quote 32]]
+      [log [list i [dec-word-to-hex-word i]]]
+      [cont [inc i]]]]
 ]
+
+[macro lg [.. lmsg]
+  [list [quote log] [list [quote quote] [concat lmsg]]]]
+
+[log [quote [23 34]]]
+[lg hej du 4 5]
