@@ -269,6 +269,9 @@ BUILTIN_TWO_DECIMAL_OP(bi_add, +)
 BUILTIN_TWO_DECIMAL_OP(bi_sub, -)
 BUILTIN_TWO_DECIMAL_OP(bi_bit_and, &)
 BUILTIN_TWO_DECIMAL_OP(bi_bit_or, |)
+BUILTIN_TWO_DECIMAL_OP(bi_bit_xor, ^)
+BUILTIN_TWO_DECIMAL_OP(bi_bit_shift_left, <<)
+BUILTIN_TWO_DECIMAL_OP(bi_bit_shift_right, >>)
 
 form_t bi_eq(form_t a, form_t b)
 {
@@ -400,10 +403,20 @@ bool streq(const char *a, const char *b)
   return strcmp(a, b) == 0;
 }
 
+form_t bi_gensym()
+{
+  static int counter = 0;
+  char *result = malloc(12);
+  sprintf(result, "gensym%d", counter++);
+  return (form_t){.tag = form_word, .len = strlen(result), .word = result};
+}
+
 built_in_func_t get_builtin(const char *name)
 {
   if (streq(name, "abort"))
     return (built_in_func_t){.parameters = 0, .func0 = bi_abort};
+  if (streq(name, "gensym"))
+    return (built_in_func_t){.parameters = 0, .func0 = bi_gensym};
 
   if (streq(name, "is-word"))
     return (built_in_func_t){.parameters = 1, .func1 = bi_is_word};
@@ -422,6 +435,13 @@ built_in_func_t get_builtin(const char *name)
     return (built_in_func_t){.parameters = 2, .func2 = bi_bit_and};
   if (streq(name, "bit-or"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_bit_or};
+  if (streq(name, "bit-xor"))
+    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_xor};
+  if (streq(name, "bit-shift-left"))
+    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_shift_left};
+  if (streq(name, "bit-shift-right-signed"))
+    return (built_in_func_t){.parameters = 2, .func2 = bi_bit_shift_right};
+
   if (streq(name, "eq"))
     return (built_in_func_t){.parameters = 2, .func2 = bi_eq};
   if (streq(name, "lt"))
@@ -667,6 +687,11 @@ form_t eval(form_t form, const Env_t *env)
   if (func_macro == NULL)
   {
     const built_in_func_t builtin = get_builtin(first_word);
+    if (builtin.parameters == -1)
+    {
+      printf("Error: unknown function %s\n", first_word);
+      exit(1);
+    }
     assert(builtin.parameters >= 0 && "builtin not found");
     if (builtin.variadic)
     {

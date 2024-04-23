@@ -82,6 +82,21 @@
             gs
             [concat [quote [or]] [rest clauses]]]]]]]]
 
+[func = [a b]
+  [ifs
+    [and [is-word a] [is-word b]]]
+    [eq a b]
+
+    [and [is-list a] [is-list b]]
+    [let [s [size a]]
+      [and [eq s [size b]]
+        [loop [i [quote 0]]
+          [if [ge i s]
+            [quote 1]
+            [and [eq [at a i] [at b i]] [cont [inc i]]]]]]
+
+    [quote 0]]]
+
 [func is-whitespace [c]
   [or [eq c [quote 32]] [eq c [quote 10]]]]
 
@@ -199,7 +214,7 @@
   [let [s [size ctx]]
     [loop [i [quote 0]]
       [if [ge i s]
-        [quote symbol-not-found]
+        [abort ]
         [let [k [at ctx i]
               v [at ctx [inc i]]]
           [if [eq k sym]
@@ -269,3 +284,82 @@
 [when [eq [quote abc] [quote abc]]
   [quote abc]
   [quote res]]
+
+[func append [l e]
+  [concat l [list e]]]
+
+[func is-all-digits [word]
+  [let [s [size word]]
+    [loop [i [quote 0]]
+      [ifs
+        [ge i s]
+        [quote 1]
+
+        [is-digit [at word i]]
+        [cont [inc i]]
+
+        [quote 0]]]]]
+
+[func s32-word-to-leb-128 [w]
+  [loop [n w
+         res []]
+    [let
+      [byte [bit-and n [quote 127]]
+       nn [bit-shift-right-signed n [quote 7]]]
+      [if [or [and [is-zero nn] [not [bit-and byte [quote 64]]]]
+              [and [eq n [quote -1]] [bit-and byte [quote 64]]]]
+        [append res byte]
+        [cont nn [append res [bit-or byte [quote 128]]]]
+      ]
+    ]
+  ]
+]
+
+[func u32-word-to-leb-128 [w]
+  [assert [not [is-negative w]] expected 32 bit ints]
+  [loop [n w
+         res []]
+    [let
+      [byte [bit-and n [quote 127]]
+       nn [bit-shift-right-signed n [quote 7]]]
+      [if [is-zero nn]
+        [append res byte]
+        [cont nn [append res [bit-or byte [quote 128]]]]
+      ]
+    ]
+  ]
+]
+
+[func dec-word-to-hex-word [dw]
+  [assert [not [is-negative dw]] expected non-negative decimal word]
+  [if [is-zero dw]
+    [quote [48]]
+    [let [hex-digits [quote 0123456789abcdef]
+          res []]
+      [loop [n dw
+             res []]
+        [if [is-zero n]
+          [word-from-codepoints [reverse res]]
+          [let [remainder [bit-and n [quote 15]]
+                quotient [bit-shift-right-signed n [quote 4]]]
+            [cont quotient [append res [at hex-digits remainder]]]]]]]]]
+
+[func comp-to-wasm [ctx form]
+  [if [is-word form]
+    [if [is-all-digits form]
+      [list [quote i32.const] form]
+      [list [quote local.get] [lookup ctx form]]]
+    [let [first-word [first form]]
+      [assert [is-word first-word] non symbol first in form]
+
+    ]]]
+
+[comp-to-wasm [] [quote 123]]
+
+[u32-word-to-leb-128 [quote 624485]]
+
+[s32-word-to-leb-128 [quote 123456]]
+[loop [i [quote 0]]
+  [when [lt i [quote 32]]
+    [log [list i [dec-word-to-hex-word i]]]
+    [cont [inc i]]]]
