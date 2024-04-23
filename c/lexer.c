@@ -510,6 +510,7 @@ FuncMacroEnv func_macro_env = {
 
 void insert_func_macro_binding(FuncMacroBinding b)
 {
+  // todo handle overwriting properly
   FuncMacroBinding *new_bindings = realloc(func_macro_env.bindings, sizeof(FuncMacroBinding) * (func_macro_env.len + 1));
   memcpy(&new_bindings[func_macro_env.len], &b, sizeof(FuncMacroBinding));
   func_macro_env.len++;
@@ -608,6 +609,7 @@ form_t eval(form_t form, const Env_t *env)
           const form_t v = result.forms[i + 1];
           bindings[i].form = v;
         }
+        free(result.forms);
         continue;
       }
       free(bindings);
@@ -754,7 +756,7 @@ form_t eval(form_t form, const Env_t *env)
   form_t result;
   for (int i = 0; i < n_of_bodies; i++)
     result = eval(bodies[i], &new_env);
-
+  free(bindings);
   if (is_macro)
     result = eval(result, env);
 
