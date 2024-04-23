@@ -1,5 +1,3 @@
-[macro comment [.. -] []]
-
 [func inc [x] [add x [quote 1]]]
 
 [func dec [x] [sub x [quote 1]]]
@@ -211,12 +209,14 @@
   [let [s [size ctx]]
     [loop [i [quote 0]]
       [if [ge i s]
-        [abort ]
+        []
         [let [k [at ctx i]
               v [at ctx [inc i]]]
           [if [eq k sym]
-            [list v]
+            v
             [cont [add i [quote 2]]]]]]]]]
+
+[macro comment [.. -] []]
 
 [func analyse [ctx form]
   [log [list [quote analysing] form [is-word form]]]
@@ -261,27 +261,6 @@
 
             ]]]]]]
 
-[comment
-  [analyse [] [quote [let b c d ]]]
-
-  ]
-
-
-[comment
-  [analyse [] [quote no-such]]
-
-  [analyse [] [quote [[]]]]
-
-  ]
-
-[func var-arg-test [f .. args]
-  args]
-[var-arg-test [quote abc] [quote b] [quote c] [quote d] [quote e]]
-
-[when [eq [quote abc] [quote abc]]
-  [quote abc]
-  [quote res]]
-
 [func append [l e]
   [concat l [list e]]]
 
@@ -301,8 +280,7 @@
   [assert [not [is-negative dw]] expected non-negative decimal word]
   [if [is-zero dw]
     [quote [48]]
-    [let [hex-digits [quote 0123456789abcdef]
-          res []]
+    [let [hex-digits [quote 0123456789abcdef]]
       [loop [n dw
              res []]
         [if [is-zero n]
@@ -343,6 +321,27 @@
           [append res byte]
           [cont value2 [append res [bit-or byte [quote 128]]]]]]]]]
 
+[func wuns-to-wasm [w]
+  [let [2-param-mapping
+    [quote
+      [
+        add i32.add
+        sub i32.sub
+        bit-and i32.and
+        bit-or i32.or
+        bit-xor i32.xor
+        bit-shift-left i32.shl
+        bit-shift-right-signed i32.shr-s
+        bit-shift-right-unsigned i32.shr-u
+
+        eq i32.eq
+        lt i32.lt-s
+        le i32.le-s
+        ge i32.ge-s
+        gt i32.gt-s
+      ]]]
+    [lookup 2-param-mapping w]]]
+
 [func comp-to-wasm [ctx form]
   [if [is-word form]
     [if [is-all-digits form]
@@ -350,10 +349,30 @@
       [list [quote local.get] [lookup ctx form]]]
     [let [first-word [first form]]
       [assert [is-word first-word] non symbol first in form]
+      [ifs
+        [eq first-word [quote quote]]
+        [do
+          [assert [eq [size form] [quote 2]] quote requires one arg]
+          [assert [is-all-digits [second form]] quote requires a decimal integer]
+          [list [quote i32.const] [second form]]]
 
-    ]]]
+        [do
+          [assert [eq [size form] [quote 3]] requires two args]
+          [list [wuns-to-wasm first-word]
+            [comp-to-wasm ctx [second form]]
+            [comp-to-wasm ctx [third form]]]]
 
-[comp-to-wasm [] [quote 123]]
+
+    ]]]]
+
+[quote
+  [
+    [func inc [x] [add x [quote 1]]]
+    [func dec [x] [sub x [quote 1]]]
+  ]
+  ]
+
+[log [comp-to-wasm [quote [x 0]] [quote [sub x [quote 3]]]]]
 
 [func map-to-hex [l]
   [loop [res []
