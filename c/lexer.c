@@ -271,7 +271,20 @@ BUILTIN_TWO_DECIMAL_OP(bi_bit_and, &)
 BUILTIN_TWO_DECIMAL_OP(bi_bit_or, |)
 BUILTIN_TWO_DECIMAL_OP(bi_bit_xor, ^)
 BUILTIN_TWO_DECIMAL_OP(bi_bit_shift_left, <<)
-BUILTIN_TWO_DECIMAL_OP(bi_bit_shift_right, >>)
+BUILTIN_TWO_DECIMAL_OP(bi_bit_shift_right_unsigned, >>)
+
+int bit_shift_right_signed(int v, int shift)
+{
+  int result = v >> shift;
+  if (v >= 0)
+    return result;
+  return (result | (~0 << (sizeof(int) * 8 - shift)));
+}
+
+form_t bi_bit_shift_right_signed(form_t a, form_t b)
+{
+  return word_from_int(bit_shift_right_signed(word_to_int(a), word_to_int(b)));
+}
 
 form_t bi_eq(form_t a, form_t b)
 {
@@ -303,6 +316,22 @@ form_t bi_is_list(form_t a)
 form_t bi_size(form_t a)
 {
   return word_from_int(a.len);
+}
+
+form_t bi_word_from_codepoints(form_t a)
+{
+  assert(is_list(a) && "word_from_codepoints requires a list");
+  const int len = a.len;
+  char *word = malloc(len + 1);
+  for (int i = 0; i < len; i++)
+  {
+    form_t codepoint = a.forms[i];
+    int cp = word_to_int(codepoint);
+    assert(classify_char(cp) == WORD && "word_from_codepoints requires a list of decimal words corresponding to ascii codes for word characters");
+    word[i] = cp;
+  }
+  word[len] = '\0';
+  return (form_t){.tag = form_word, .len = len, .word = word};
 }
 
 form_t bi_log(form_t a)
@@ -411,39 +440,42 @@ form_t bi_gensym()
   return (form_t){.tag = form_word, .len = strlen(result), .word = result};
 }
 
-typedef struct {
+typedef struct
+{
   const char *name;
   built_in_func_t func;
 } built_in_func_entry_t;
 
 static const built_in_func_entry_t built_in_funcs[] = {
-  {"abort", {.parameters = 0, .func0 = bi_abort}},
-  {"gensym", {.parameters = 0, .func0 = bi_gensym}},
+    {"abort", {.parameters = 0, .func0 = bi_abort}},
+    {"gensym", {.parameters = 0, .func0 = bi_gensym}},
 
-  {"is-word", {.parameters = 1, .func1 = bi_is_word}},
-  {"is-list", {.parameters = 1, .func1 = bi_is_list}},
-  {"size", {.parameters = 1, .func1 = bi_size}},
-  {"log", {.parameters = 1, .func1 = bi_log}},
+    {"is-word", {.parameters = 1, .func1 = bi_is_word}},
+    {"is-list", {.parameters = 1, .func1 = bi_is_list}},
+    {"size", {.parameters = 1, .func1 = bi_size}},
+    {"log", {.parameters = 1, .func1 = bi_log}},
 
-  {"add", {.parameters = 2, .func2 = bi_add}},
-  {"sub", {.parameters = 2, .func2 = bi_sub}},
-  {"bit-and", {.parameters = 2, .func2 = bi_bit_and}},
-  {"bit-or", {.parameters = 2, .func2 = bi_bit_or}},
-  {"bit-xor", {.parameters = 2, .func2 = bi_bit_xor}},
-  {"bit-shift-left", {.parameters = 2, .func2 = bi_bit_shift_left}},
-  {"bit-shift-right-signed", {.parameters = 2, .func2 = bi_bit_shift_right}},
+    {"add", {.parameters = 2, .func2 = bi_add}},
+    {"sub", {.parameters = 2, .func2 = bi_sub}},
+    {"bit-and", {.parameters = 2, .func2 = bi_bit_and}},
+    {"bit-or", {.parameters = 2, .func2 = bi_bit_or}},
+    {"bit-xor", {.parameters = 2, .func2 = bi_bit_xor}},
+    {"bit-shift-left", {.parameters = 2, .func2 = bi_bit_shift_left}},
+    {"bit-shift-right-signed", {.parameters = 2, .func2 = bi_bit_shift_right_signed}},
+    {"bit-shift-right-unsigned", {.parameters = 2, .func2 = bi_bit_shift_right_unsigned}},
 
-  {"eq", {.parameters = 2, .func2 = bi_eq}},
-  {"lt", {.parameters = 2, .func2 = bi_lt}},
-  {"le", {.parameters = 2, .func2 = bi_le}},
-  {"ge", {.parameters = 2, .func2 = bi_ge}},
-  {"gt", {.parameters = 2, .func2 = bi_gt}},
+    {"eq", {.parameters = 2, .func2 = bi_eq}},
+    {"lt", {.parameters = 2, .func2 = bi_lt}},
+    {"le", {.parameters = 2, .func2 = bi_le}},
+    {"ge", {.parameters = 2, .func2 = bi_ge}},
+    {"gt", {.parameters = 2, .func2 = bi_gt}},
 
-  {"at", {.parameters = 2, .func2 = bi_at}},
+    {"at", {.parameters = 2, .func2 = bi_at}},
+    {"word-from-codepoints", {.parameters = 1, .func1 = bi_word_from_codepoints}},
 
-  {"slice", {.parameters = 3, .func3 = bi_slice}},
+    {"slice", {.parameters = 3, .func3 = bi_slice}},
 
-  {"concat", {.parameters = 0, .variadic = true, .funcvar = bi_concat}},
+    {"concat", {.parameters = 0, .variadic = true, .funcvar = bi_concat}},
 };
 
 built_in_func_t get_builtin(const char *name)

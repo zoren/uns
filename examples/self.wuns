@@ -300,20 +300,19 @@
 
         [quote 0]]]]]
 
-[func s32-word-to-leb-128 [w]
-  [loop [n w
-         res []]
-    [let
-      [byte [bit-and n [quote 127]]
-       nn [bit-shift-right-signed n [quote 7]]]
-      [if [or [and [is-zero nn] [not [bit-and byte [quote 64]]]]
-              [and [eq n [quote -1]] [bit-and byte [quote 64]]]]
-        [append res byte]
-        [cont nn [append res [bit-or byte [quote 128]]]]
-      ]
-    ]
-  ]
-]
+[func dec-word-to-hex-word [dw]
+  [assert [not [is-negative dw]] expected non-negative decimal word]
+  [if [is-zero dw]
+    [quote [48]]
+    [let [hex-digits [quote 0123456789abcdef]
+          res []]
+      [loop [n dw
+             res []]
+        [if [is-zero n]
+          [word-from-codepoints res]
+          [let [remainder [bit-and n [quote 15]]
+                quotient [bit-shift-right-signed n [quote 4]]]
+            [cont quotient [concat [list [at hex-digits remainder]] res]]]]]]]]
 
 [func u32-word-to-leb-128 [w]
   [assert [not [is-negative w]] expected 32 bit ints]
@@ -324,25 +323,28 @@
        nn [bit-shift-right-signed n [quote 7]]]
       [if [is-zero nn]
         [append res byte]
-        [cont nn [append res [bit-or byte [quote 128]]]]
-      ]
-    ]
-  ]
-]
+        [cont nn [append res [bit-or byte [quote 128]]]]]]]]
 
-[func dec-word-to-hex-word [dw]
-  [assert [not [is-negative dw]] expected non-negative decimal word]
-  [if [is-zero dw]
-    [quote [48]]
-    [let [hex-digits [quote 0123456789abcdef]
+[func s32-word-to-leb-128 [value]
+  [if [is-negative value]
+    [loop [value1 value
           res []]
-      [loop [n dw
-             res []]
-        [if [is-zero n]
-          [word-from-codepoints [reverse res]]
-          [let [remainder [bit-and n [quote 15]]
-                quotient [bit-shift-right-signed n [quote 4]]]
-            [cont quotient [append res [at hex-digits remainder]]]]]]]]]
+      [let
+        [byte [bit-and value1 [quote 127]]
+        value2 [bit-shift-right-signed value1 [quote 7]]]
+        [if [or [and [is-zero value2]       [not [bit-and byte [quote 64]]]]
+                [and [eq value2 [quote -1]] [bit-and byte [quote 64]]]]
+          [append res byte]
+          [cont value2 [append res [bit-or byte [quote 128]]]]]]]
+    [loop [value1 value
+      res []]
+      [let
+        [byte [bit-and value1 [quote 127]]
+        value2 [bit-shift-right-signed value1 [quote 7]]]
+        [if [or [and [is-zero value2]       [not [bit-and byte [quote 64]]]]
+                [and [eq value2 [quote -1]] [bit-and byte [quote 64]]]]
+          [append res byte]
+          [cont value2 [append res [bit-or byte [quote 128]]]]]]]]]
 
 [func comp-to-wasm [ctx form]
   [if [is-word form]
@@ -356,10 +358,24 @@
 
 [comp-to-wasm [] [quote 123]]
 
-[u32-word-to-leb-128 [quote 624485]]
+[func map-to-hex [l]
+  [loop [res []
+         i [quote 0]]
+    [if [lt i [size l]]
+      [cont [append res [dec-word-to-hex-word [at l i]]] [inc i]]
+      res]]]
 
-[s32-word-to-leb-128 [quote 123456]]
-[loop [i [quote 0]]
+
+[comment this is wrong
+[map-to-hex [u32-word-to-leb-128 [quote 624485]]]
+
+]
+
+[map-to-hex [s32-word-to-leb-128 [quote -123456]]]
+
+[comment
+  [loop [i [quote 0]]
   [when [lt i [quote 32]]
     [log [list i [dec-word-to-hex-word i]]]
     [cont [inc i]]]]
+]
