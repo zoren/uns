@@ -278,7 +278,7 @@ int bit_shift_right_signed(int v, int shift)
   int result = v >> shift;
   if (v >= 0)
     return result;
-  return (result | (~0 << (sizeof(int) * 8 - shift)));
+  return (result | (~0 << (sizeof(int) * CHAR_BIT - shift)));
 }
 
 form_t bi_bit_shift_right_signed(form_t a, form_t b)
