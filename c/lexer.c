@@ -14,12 +14,12 @@ typedef enum
   WHITESPACE = ' ',
 } token_type;
 
-#define BUFSIZE (128 - 1)
+#define BUFSIZE 8192
 
 typedef struct
 {
   FILE *file;
-  char buf[BUFSIZE + 1], *lim, *cur, *tok;
+  char buf[BUFSIZE], *lim, *cur, *tok;
   token_type state;
   bool eof;
 } FileLexerState;
@@ -28,9 +28,10 @@ FileLexerState init_lexer(FILE *file)
 {
   FileLexerState st;
   st.file = file;
-  st.cur = st.tok = st.lim = st.buf + BUFSIZE;
-  st.eof = false;
-  st.lim[0] = 0;
+  st.cur = st.tok = st.buf;
+  const size_t read = fread(st.buf, 1, BUFSIZE, file);
+  st.lim = st.buf + read;
+  st.eof = read < BUFSIZE;
   st.state = UNSET;
   return st;
 }
@@ -52,7 +53,6 @@ void fill(FileLexerState *st)
   const size_t read = fread(st->lim, 1, free, st->file);
   st->eof = read < (size_t)free;
   st->lim += read;
-  st->lim[0] = 0; // append sentinel symbol
 }
 
 int peek_char(FileLexerState *st)
