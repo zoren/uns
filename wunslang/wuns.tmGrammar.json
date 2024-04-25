@@ -1,0 +1,44 @@
+{
+  "scopeName": "source.wuns",
+  "patterns": [
+    {
+      "include": "#form"
+    }
+  ],
+  "repository": {
+    "form": {
+      "patterns": [
+        {
+          "include": "#word"
+        },
+        {
+          "include": "#bracket-form"
+        }
+      ]
+    },
+    "word": {
+      "match": "[a-z0-9.-=]+",
+      "name": "keyword.word"
+    },
+    "bracket-form": {
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.bracket.open"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.bracket.close"
+        }
+      },
+      "name": "form.group",
+      "patterns": [
+        {
+          "include": "#form"
+        }
+      ]
+    }
+  }
+}

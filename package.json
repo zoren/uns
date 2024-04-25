@@ -3,6 +3,33 @@
   "version": "1.0.0",
   "description": "uns is a lispy programming language using primarily the characters one can reach without using the shift key",
   "type": "module",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "wunslang.helloWorld",
+        "title": "Hello World"
+      }
+    ],
+    "languages": [
+      {
+        "id": "wuns",
+        "extensions": [
+          ".wuns"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "wuns",
+        "scopeName": "source.wuns",
+        "path": "./wunslang/wuns.tmGrammar.json"
+      }
+    ]
+  },
+  "main": "./wunslang/extension.js",
   "scripts": {
     "test": "node nodetest.js && qjs quickjs/test.js"
   },
